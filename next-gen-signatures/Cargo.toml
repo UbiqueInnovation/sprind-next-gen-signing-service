@@ -9,5 +9,6 @@ fips204 = ["dep:fips204"]
 
 [dependencies]
 anyhow = "1.0.89"
+base64 = "0.22.1"
 fips204 = { version = "0.2.2", optional = true }
 paste = "1.0.15"

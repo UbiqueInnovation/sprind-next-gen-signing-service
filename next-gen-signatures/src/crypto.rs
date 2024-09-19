@@ -1,4 +1,7 @@
 #[cfg(feature = "fips204")]
+pub use fips204::*;
+
+#[cfg(feature = "fips204")]
 pub mod fips204 {
     use fips204::traits::{SerDes, Signer, Verifier};
 
