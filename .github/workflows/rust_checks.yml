@@ -31,7 +31,7 @@ jobs:
           toolchain: stable
           components: clippy
       - name: Run clippy
-        run: cargo clippy -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
   test:
     runs-on: ubuntu-latest
     steps:
@@ -45,7 +45,7 @@ jobs:
           components: cargo
       - name: Run tests
         run: |
-          cargo +nightly test --workspace --all-targets -- -Z unstable-options --format json --report-time | tee results.json
+          cargo +nightly test --workspace --all-targets --all-features -- -Z unstable-options --format json --report-time | tee results.json
       - name: Prepare junit report
         id: cargo_reporter
         uses: innoq/action-cargo-test-report@v1

@@ -4,5 +4,8 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
-next-gen-signatures = { path = "../next-gen-signatures" }
-rocket = "0.5.1"
+next-gen-signatures = { path = "../next-gen-signatures", features = [
+    "all-algos",
+] }
+rocket = { version = "0.5.1", features = ["json"] }
+serde = "1.0.210"
