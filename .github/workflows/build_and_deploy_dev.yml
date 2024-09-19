@@ -33,9 +33,8 @@ jobs:
         with:
           images: |
             ${{ secrets.UBIQUE_ACR_REGISTRY }}/next-gen-signing-service-dev
-          tags: >
-            # dynamically set the branch name and sha as a custom tag if
-            tag_add_commithash is enabled
+          tags: |
+            # dynamically set the branch name and sha as a custom tag if tag_add_commithash is enabled
             type=raw,value=${{ inputs.repo_branch || github.ref_name }}-{{sha}},enable=true
             # set latest tag for default branch
             type=raw,value=latest,enable=true
@@ -55,7 +54,7 @@ jobs:
     needs:
       - create-docker-image
     with:
-      ref_name: '${{ inputs.repo_branch }}'
+      ref_name: '${{ inputs.repo_branch || github.ref_name }}'
       tag_add_commithash: true
       namespace: sprind-eudi
       app_name: next-gen-signing-service-dev
