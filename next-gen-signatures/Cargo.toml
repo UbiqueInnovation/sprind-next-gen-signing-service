@@ -4,3 +4,6 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.89"
+fips204 = "0.2.2"
+paste = "1.0.15"
