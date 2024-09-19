@@ -3,7 +3,11 @@ name = "next-gen-signatures"
 version = "0.0.1"
 edition = "2021"
 
+[features]
+all-algos = ["fips204"]
+fips204 = ["dep:fips204"]
+
 [dependencies]
 anyhow = "1.0.89"
-fips204 = "0.2.2"
+fips204 = { version = "0.2.2", optional = true }
 paste = "1.0.15"
