@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sprind-nex-gen-signing-service-dev
+  namespace: sprind-eudi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sprind-nex-gen-signing-service-dev
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  minReadySeconds: 60
+  template:
+    metadata:
+      labels:
+        app: sprind-nex-gen-signing-service-dev
+    spec:
+      nodeSelector:
+        kubernetes.io/os: linux
+      containers:
+        - name: sprind-nex-gen-signing-service-dev
+          image: 'ubique.azurecr.io/next-gen-signing-service-dev:PLACEHOLDER'
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 512Mi
+            limits:
+              memory: 512Mi
+      imagePullSecrets:
+        - name: ub-acr-secret
