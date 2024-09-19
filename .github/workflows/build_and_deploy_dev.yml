@@ -36,7 +36,6 @@ jobs:
           tags: >
             # dynamically set the branch name and sha as a custom tag if
             tag_add_commithash is enabled
-            type=semver,pattern={{raw}},value=${{ inputs.repo_branch || github.ref_name }},enable=true
             type=raw,value=${{ inputs.repo_branch || github.ref_name }}-{{sha}},enable=true
             # set latest tag for default branch
             type=raw,value=latest,enable=true
