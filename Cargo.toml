@@ -1,0 +1,4 @@
+[workspace]
+resolver = "2"
+members = ["next-gen-signatures", "next-gen-signing-service"]
+default-members = ["next-gen-signatures", "next-gen-signing-service"]

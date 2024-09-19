@@ -1,0 +1,8 @@
+[package]
+name = "next-gen-signing-service"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+next-gen-signatures = { path = "../next-gen-signatures" }
+rocket = "0.5.1"
