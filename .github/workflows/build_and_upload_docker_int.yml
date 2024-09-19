@@ -1,0 +1,44 @@
+name: Build and Upload Docker image (INT)
+'on':
+  push:
+    tags:
+      - v*
+jobs:
+  create-docker-image:
+    name: Create Docker Image
+    runs-on:
+      - ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: azure/docker-login@v1
+        with:
+          login-server: '${{ secrets.UBIQUE_ACR_REGISTRY }}'
+          username: '${{ secrets.UBIQUE_ACR_USERNAME }}'
+          password: '${{ secrets.UBIQUE_ACR_PASSWORD }}'
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Docker Metadata
+        id: docker_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ secrets.UBIQUE_ACR_REGISTRY }}/sprind-next-gen-signing-service
+          tags: >
+            # dynamically set the branch name and sha as a custom tag if
+            tag_add_commithash is enabled
+            type=semver,pattern={{raw}},value=${{ github.ref_name }},enable=true
+            type=raw,value=${{ github.ref_name }}-{{sha}},enable=true
+            # set latest tag for default branch
+            type=raw,value=latest,enable=true
+      - name: Docker build and push
+        uses: docker/build-push-action@v5
+        with:
+          tags: '${{ steps.docker_meta.outputs.tags }}'
+          labels: '${{ steps.docker_meta.outputs.labels }}'
+          file: ./Dockerfile
+          push: true
+          context: .
+          cache-from: type=gha
+          cache-to: 'type=gha,mode=max'
