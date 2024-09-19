@@ -1,6 +1,7 @@
 name: Rust Format Check
 'on':
   - pull_request
+  - workflow_dispatch
 jobs:
   rustfmt:
     runs-on: ubuntu-latest
