@@ -33,7 +33,7 @@ jobs:
           uses: docker/metadata-action@v5
           with:
             images: |
-                ${{ secrets.UBIQUE_ACR_REGISTRY }}/sprind-next-gen-signing-service
+                ${{ secrets.UBIQUE_ACR_REGISTRY }}/next-gen-signing-service-dev
             tags: |
                 # dynamically set the branch name and sha as a custom tag if
                 tag_add_commithash is enabled
