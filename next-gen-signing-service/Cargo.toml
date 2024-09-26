@@ -9,6 +9,7 @@ async-trait = "0.1.83"
 next-gen-signatures = { path = "../next-gen-signatures", features = [
     "all-algos",
 ] }
+paste = "1.0.15"
 rocket = { version = "0.5.1", features = ["json"] }
 rocket-errors = "0.1.0"
 serde = "1.0.210"

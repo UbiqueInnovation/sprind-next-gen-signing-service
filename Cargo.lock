@@ -1210,6 +1210,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "next-gen-signatures",
+ "paste",
  "rocket",
  "rocket-errors",
  "serde",
