@@ -6,23 +6,30 @@ edition = "2021"
 [features]
 all-algos = ["fips204", "bbs"]
 fips204 = ["dep:fips204"]
-bbs = ["dep:bbs_plus"]
+bbs = [
+    "dep:ark-bls12-381",
+    "dep:ark-ec",
+    "dep:ark-serialize",
+    "dep:bbs_plus",
+    "dep:blake2",
+    "dep:num-bigint",
+    "dep:rand",
+]
 
 [dependencies]
 anyhow = "1.0.89"
-ark-bls12-381 = "0.4.0"
-ark-ec = "0.4.2"
-ark-serialize = "0.4.2"
-async-trait = "0.1.83"
 base64 = "0.22.1"
-bbs_plus = { version = "0.22.0", optional = true }
-blake2 = "0.10.6"
-fips204 = { version = "0.2.2", optional = true }
-num-bigint = "0.4.6"
 paste = "1.0.15"
-rand = "0.8.5"
 rocket = "0.5.1"
-rocket_codegen = "0.5.1"
-serde = { version = "1.0.210", features = ["derive"] }
-serde_json = "1.0.128"
-serde_with = { version = "3.9.0", features = ["base64"] }
+
+# FIPS204
+fips204 = { version = "0.2.2", optional = true }
+
+# BBS+
+ark-bls12-381 = { version = "0.4.0", optional = true }
+ark-ec = { version = "0.4.2", optional = true }
+ark-serialize = { version = "0.4.2", optional = true }
+bbs_plus = { version = "0.22.0", optional = true }
+blake2 = { version = "0.10.6", optional = true }
+num-bigint = { version = "0.4.6", optional = true }
+rand = { version = "0.8.5", optional = true }

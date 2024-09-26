@@ -1,9 +1,7 @@
 use std::fmt::Display;
 
 use anyhow::Result;
-use base64::Engine;
 use rocket::form::{self, DataField, FromForm, ValueField};
-use serde::de::DeserializeOwned;
 
 pub type ByteArray = Vec<u8>;
 
@@ -64,10 +62,4 @@ impl TestDefault for NoArguments {
     fn default_for_test() -> Self {
         NoArguments
     }
-}
-
-pub fn deserialize_from_str<'a, T: DeserializeOwned>(str: &str) -> anyhow::Result<T> {
-    let data = crate::BASE64_URL_SAFE_NO_PAD.decode(str)?;
-    let data = String::from_utf8(data)?;
-    Ok(serde_json::from_str::<T>(&data)?)
 }

@@ -3,7 +3,8 @@ use rocket::{get, launch, routes, serde::json::Json};
 use next_gen_signatures::{Engine, BASE64_URL_SAFE_NO_PAD};
 use rocket_errors::anyhow;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, rocket::serde::Serialize, rocket::serde::Deserialize)]
+#[serde(crate = "rocket::serde")]
 pub struct KeyPair {
     pub public_key: String,
     pub secret_key: String,
