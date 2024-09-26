@@ -3,6 +3,8 @@ use rocket::{get, launch, routes, serde::json::Json};
 use next_gen_signatures::{Engine, BASE64_URL_SAFE_NO_PAD};
 use rocket_errors::anyhow;
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[derive(Debug, rocket::serde::Serialize, rocket::serde::Deserialize)]
 #[serde(crate = "rocket::serde")]
 pub struct KeyPair {
@@ -28,8 +30,8 @@ mod bbs_plus_routes {
 }
 
 #[get("/")]
-fn index() -> &'static str {
-    "Hello, World!"
+fn index() -> String {
+    format!("SPRIND Signing Service v{VERSION}")
 }
 
 #[launch]
@@ -80,6 +82,8 @@ fn rocket() -> _ {
 
 #[cfg(test)]
 mod test {
+    use crate::VERSION;
+
     use super::rocket;
     use rocket::local::blocking::Client;
     use rocket::{http::Status, uri};
@@ -196,11 +200,11 @@ mod test {
     }
 
     #[test]
-    fn hello_world() {
+    fn index_should_contain_version() {
         let client = Client::tracked(rocket()).expect("valid rocket instance");
         let response = client.get(uri!(super::index)).dispatch();
         assert_eq!(response.status(), Status::Ok);
-        assert_eq!(response.into_string().unwrap(), "Hello, World!");
+        assert!(response.into_string().unwrap().contains(VERSION));
     }
 
     test_roundtrip_fips204!(44);
