@@ -1,11 +1,12 @@
 [package]
 name = "next-gen-signing-service"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 
 [dependencies]
 next-gen-signatures = { path = "../next-gen-signatures", features = [
     "all-algos",
 ] }
+paste = "1.0.15"
 rocket = { version = "0.5.1", features = ["json"] }
-serde = "1.0.210"
+rocket-errors = "0.1.0"
