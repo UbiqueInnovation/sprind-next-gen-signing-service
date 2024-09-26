@@ -245,6 +245,10 @@ pub mod bbs {
 
                         let (pk, params) = fix_arguments!($g1, pk, params);
 
+                        if !pk.is_valid() || !params.is_valid() {
+                            anyhow::bail!("Invalid params!");
+                        }
+
                         Ok(sig
                             .verify(
                                 &[BigUint::from_bytes_le(&msg).into()],
