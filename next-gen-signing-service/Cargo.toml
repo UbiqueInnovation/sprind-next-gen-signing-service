@@ -4,8 +4,12 @@ version = "0.0.2"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0.89"
+async-trait = "0.1.83"
 next-gen-signatures = { path = "../next-gen-signatures", features = [
     "all-algos",
 ] }
 rocket = { version = "0.5.1", features = ["json"] }
+rocket-errors = "0.1.0"
 serde = "1.0.210"
+serde_json = "1.0.128"

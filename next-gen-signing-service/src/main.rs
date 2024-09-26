@@ -1,7 +1,9 @@
 use rocket::{get, launch, routes, serde::json::Json};
 
+use next_gen_signatures::{Engine, BASE64_URL_SAFE_NO_PAD};
+use rocket_errors::anyhow;
+
 #[derive(Debug, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct KeyPair {
     pub public_key: String,
     pub secret_key: String,
@@ -9,13 +11,19 @@ pub struct KeyPair {
 
 mod fips204_routes {
     use super::*;
-    use next_gen_signatures::common::CryptoProvider;
     use next_gen_signatures::generate_crypto_routes;
-    use next_gen_signatures::{Engine, BASE64_URL_SAFE_NO_PAD};
 
     generate_crypto_routes!(Fips204MlDsa44Provider);
     generate_crypto_routes!(Fips204MlDsa65Provider);
     generate_crypto_routes!(Fips204MlDsa87Provider);
+}
+
+mod bbs_plus_routes {
+    use super::*;
+    use next_gen_signatures::generate_crypto_routes;
+
+    generate_crypto_routes!(BbsPlusG1Provider);
+    generate_crypto_routes!(BbsPlusG2Provider);
 }
 
 #[get("/")]
@@ -49,6 +57,22 @@ fn rocket() -> _ {
                 fips204_routes::Fips204MlDsa87Provider_gen_keypair,
                 fips204_routes::Fips204MlDsa87Provider_sign,
                 fips204_routes::Fips204MlDsa87Provider_verify
+            ],
+        )
+        .mount(
+            "/bbs+/g1/",
+            routes![
+                bbs_plus_routes::BbsPlusG1Provider_gen_keypair,
+                bbs_plus_routes::BbsPlusG1Provider_sign,
+                bbs_plus_routes::BbsPlusG1Provider_verify,
+            ],
+        )
+        .mount(
+            "/bbs+/g2/",
+            routes![
+                bbs_plus_routes::BbsPlusG2Provider_gen_keypair,
+                bbs_plus_routes::BbsPlusG2Provider_sign,
+                bbs_plus_routes::BbsPlusG2Provider_verify,
             ],
         )
 }
