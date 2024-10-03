@@ -38,15 +38,12 @@ macro_rules! test_provider {
                 fn test_sign_verify_roundtrip() -> anyhow::Result<()> {
                     let (pk, sk) = $provider::gen_keypair(<$provider as CryptoProvider>::GenParams::default_for_test())?;
 
-                    let msg = b"Hello, World".to_vec();
                     let sig = $provider::sign(
                         &sk,
-                        msg.clone(),
                         <$provider as CryptoProvider>::SignParams::default_for_test()
                     )?;
                     let valid = $provider::verify(
                         pk,
-                        msg,
                         sig,
                         <$provider as CryptoProvider>::VerifyParams::default_for_test()
                     )?;
@@ -80,39 +77,35 @@ macro_rules! generate_crypto_routes {
                 Ok(Json(KeyPair { public_key: pk, secret_key: sk }))
             }
 
-            #[get("/sign?<secret_key>&<message>&<params..>")]
+            #[get("/sign?<secret_key>&<params..>")]
             #[allow(non_snake_case)]
             pub(crate) fn [<$provider _sign>](
                 secret_key: &str,
-                message: &str,
-                params: <$crate::crypto::$provider as $crate::common::CryptoProvider>::GenParams
+                params: <$crate::crypto::$provider as $crate::common::CryptoProvider>::SignParams
             ) -> anyhow::Result<Json<String>> {
                 use next_gen_signatures::common::CryptoProvider;
 
                 let sk = BASE64_URL_SAFE_NO_PAD.decode(secret_key).unwrap();
                 let sk = $crate::crypto::$provider::sk_from_bytes(sk).unwrap();
-                let msg = BASE64_URL_SAFE_NO_PAD.decode(message).unwrap();
 
-                let sig = $crate::crypto::$provider::sign(&sk, msg, params).unwrap();
+                let sig = $crate::crypto::$provider::sign(&sk, params).unwrap();
                 Ok(Json(BASE64_URL_SAFE_NO_PAD.encode(sig)))
             }
 
-            #[get("/verify?<public_key>&<message>&<signature>&<params..>")]
+            #[get("/verify?<public_key>&<signature>&<params..>")]
             #[allow(non_snake_case)]
             pub(crate) fn [<$provider _verify>](
                 public_key: &str,
-                message: &str,
                 signature: &str,
-                params: <$crate::crypto::$provider as $crate::common::CryptoProvider>::GenParams
+                params: <$crate::crypto::$provider as $crate::common::CryptoProvider>::VerifyParams
             ) -> Json<bool> {
                 use next_gen_signatures::common::CryptoProvider;
 
                 let pk = BASE64_URL_SAFE_NO_PAD.decode(public_key).unwrap();
                 let pk = $crate::crypto::$provider::pk_from_bytes(pk).unwrap();
-                let msg = BASE64_URL_SAFE_NO_PAD.decode(message).unwrap();
                 let sig = BASE64_URL_SAFE_NO_PAD.decode(signature).unwrap();
 
-                let valid = $crate::crypto::$provider::verify(pk, msg, sig, params).unwrap();
+                let valid = $crate::crypto::$provider::verify(pk, sig, params).unwrap();
 
                 Json(valid)
             }

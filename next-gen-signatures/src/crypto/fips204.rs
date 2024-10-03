@@ -1,14 +1,29 @@
+use base64::Engine;
 use fips204::traits::{SerDes, Signer, Verifier};
+use rocket::FromForm;
 
-use crate::common::{CryptoProvider, NoArguments};
+use crate::common::{CryptoProvider, NoArguments, TestDefault};
+
+#[derive(FromForm)]
+pub struct SignParams {
+    message: String,
+}
+
+impl TestDefault for SignParams {
+    fn default_for_test() -> Self {
+        Self {
+            message: crate::BASE64_URL_SAFE_NO_PAD.encode(b"message"),
+        }
+    }
+}
 
 macro_rules! fips_provider_impl {
     ($provider_name:ident, $pkg_name:ident) => {
         pub struct $provider_name;
         impl CryptoProvider for $provider_name {
             type GenParams = NoArguments;
-            type SignParams = NoArguments;
-            type VerifyParams = NoArguments;
+            type SignParams = SignParams;
+            type VerifyParams = SignParams;
 
             type PublicKey = fips204::$pkg_name::PublicKey;
 
@@ -54,9 +69,9 @@ macro_rules! fips_provider_impl {
 
             fn sign(
                 sk: &Self::SecretKey,
-                msg: crate::common::ByteArray,
-                _: Self::SignParams,
+                params: Self::SignParams,
             ) -> anyhow::Result<crate::common::ByteArray> {
+                let msg = $crate::BASE64_URL_SAFE_NO_PAD.decode(&params.message)?;
                 sk.try_sign(&msg)
                     .map(|res| res.to_vec())
                     .map_err(|err| anyhow::anyhow!(err))
@@ -64,10 +79,10 @@ macro_rules! fips_provider_impl {
 
             fn verify(
                 pk: Self::PublicKey,
-                msg: crate::common::ByteArray,
                 sig: crate::common::ByteArray,
-                _: Self::VerifyParams,
+                params: Self::VerifyParams,
             ) -> anyhow::Result<bool> {
+                let msg = $crate::BASE64_URL_SAFE_NO_PAD.decode(&params.message)?;
                 let sig_len = sig.len();
                 let sig = sig.try_into().map_err(|_| {
                     anyhow::anyhow!(

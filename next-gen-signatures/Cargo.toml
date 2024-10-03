@@ -33,3 +33,6 @@ bbs_plus = { version = "0.22.0", optional = true }
 blake2 = { version = "0.10.6", optional = true }
 num-bigint = { version = "0.4.6", optional = true }
 rand = { version = "0.8.5", optional = true }
+ark-std = "0.4.0"
+dock_crypto_utils = "0.20.0"
+schnorr_pok = "0.20.0"
