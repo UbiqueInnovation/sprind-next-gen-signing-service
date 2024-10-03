@@ -1,6 +1,6 @@
 [package]
 name = "next-gen-signatures"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 
 [features]
@@ -10,10 +10,13 @@ bbs = [
     "dep:ark-bls12-381",
     "dep:ark-ec",
     "dep:ark-serialize",
+    "dep:ark-std",
     "dep:bbs_plus",
     "dep:blake2",
+    "dep:dock_crypto_utils",
     "dep:num-bigint",
     "dep:rand",
+    "dep:schnorr_pok",
 ]
 
 [dependencies]
@@ -29,10 +32,10 @@ fips204 = { version = "0.2.2", optional = true }
 ark-bls12-381 = { version = "0.4.0", optional = true }
 ark-ec = { version = "0.4.2", optional = true }
 ark-serialize = { version = "0.4.2", optional = true }
+ark-std = { version = "0.4.0", optional = true }
 bbs_plus = { version = "0.22.0", optional = true }
 blake2 = { version = "0.10.6", optional = true }
+dock_crypto_utils = { version = "0.20.0", optional = true }
 num-bigint = { version = "0.4.6", optional = true }
 rand = { version = "0.8.5", optional = true }
-ark-std = "0.4.0"
-dock_crypto_utils = "0.20.0"
-schnorr_pok = "0.20.0"
+schnorr_pok = { version = "0.20.0", optional = true }

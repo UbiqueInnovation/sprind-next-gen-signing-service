@@ -1060,7 +1060,7 @@ dependencies = [
 
 [[package]]
 name = "next-gen-signatures"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anyhow",
  "ark-bls12-381",
@@ -1081,7 +1081,7 @@ dependencies = [
 
 [[package]]
 name = "next-gen-signing-service"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "next-gen-signatures",
  "paste",
