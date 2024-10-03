@@ -27,14 +27,14 @@ fn get_rng() -> impl RngCore {
 
 #[derive(FromForm)]
 pub struct GenParams {
-    nonce: String,
-    message_count: u32,
+    pub nonce: String,
+    pub message_count: u32,
 }
 
 #[derive(FromForm)]
 pub struct SignParams {
-    nonce: String,
-    messages: Vec<String>,
+    pub nonce: String,
+    pub messages: Vec<String>,
 }
 
 pub type VerifyParams = SignParams;
