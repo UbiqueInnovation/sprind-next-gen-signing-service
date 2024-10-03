@@ -22,11 +22,56 @@ mod fips204_routes {
 }
 
 mod bbs_plus_routes {
+    use std::collections::BTreeMap;
+
     use super::*;
-    use next_gen_signatures::generate_crypto_routes;
+    use next_gen_signatures::{common::CryptoProvider, generate_crypto_routes};
 
     generate_crypto_routes!(BbsPlusG1Provider);
     generate_crypto_routes!(BbsPlusG2Provider);
+
+    #[get("/pok/create?<signature>&<messages>&<nonce>&<revealed_indexes>")]
+    #[allow(non_snake_case)]
+    pub fn BbsPlusG1Provider_create_pok_of_sig(
+        signature: String,
+        messages: Vec<String>,
+        nonce: String,
+        revealed_indexes: Vec<usize>,
+    ) -> Json<String> {
+        use next_gen_signatures::{crypto::BbsPlusG1Provider as Provider, BASE64_URL_SAFE_NO_PAD};
+
+        let signature = BASE64_URL_SAFE_NO_PAD.decode(signature).unwrap();
+        let revealed_indexes = revealed_indexes.into_iter().collect();
+        let proof =
+            Provider::create_pok_of_sig(signature, messages, nonce, revealed_indexes).unwrap();
+
+        Json(BASE64_URL_SAFE_NO_PAD.encode(proof))
+    }
+
+    #[get("/pok/verify?<proof>&<revealed_messages>&<public_key>&<nonce>&<message_count>")]
+    #[allow(non_snake_case)]
+    pub fn BbsPlusG1Provider_verify_pok_of_sig(
+        proof: String,
+        revealed_messages: BTreeMap<usize, String>,
+        public_key: String,
+        nonce: String,
+        message_count: u32,
+    ) -> Json<bool> {
+        use next_gen_signatures::{crypto::BbsPlusG1Provider as Provider, BASE64_URL_SAFE_NO_PAD};
+
+        let proof = BASE64_URL_SAFE_NO_PAD.decode(proof).unwrap();
+
+        let public_key = BASE64_URL_SAFE_NO_PAD.decode(public_key).unwrap();
+        let public_key = Provider::pk_from_bytes(public_key).unwrap();
+
+        let revealed_messages = revealed_messages.into_iter().collect();
+
+        let success =
+            Provider::verify_pok_of_sig(proof, revealed_messages, public_key, nonce, message_count)
+                .unwrap();
+
+        Json(success)
+    }
 }
 
 #[get("/")]
@@ -68,6 +113,8 @@ fn rocket() -> _ {
                 bbs_plus_routes::BbsPlusG1Provider_gen_keypair,
                 bbs_plus_routes::BbsPlusG1Provider_sign,
                 bbs_plus_routes::BbsPlusG1Provider_verify,
+                bbs_plus_routes::BbsPlusG1Provider_create_pok_of_sig,
+                bbs_plus_routes::BbsPlusG1Provider_verify_pok_of_sig,
             ],
         )
         .mount(
@@ -84,7 +131,7 @@ fn rocket() -> _ {
 mod test {
     use crate::VERSION;
 
-    use super::rocket;
+    use super::*;
     use rocket::local::blocking::Client;
     use rocket::{http::Status, uri};
 
@@ -166,7 +213,7 @@ mod test {
 
                     let response = client
                         .get(format!(
-                            "/bbs+/{g}/sign?secret_key={sk}&message={msg}&nonce={n}&message_count={c}",
+                            "/bbs+/{g}/sign?secret_key={sk}&messages.0={msg}&nonce={n}&message_count={c}",
                             g = stringify!($g),
                             sk = keypair.secret_key,
                             msg = message,
@@ -179,7 +226,7 @@ mod test {
                     let signature = response.into_json::<String>().unwrap();
                     let response = client
                         .get(format!(
-                            "/bbs+/{g}/verify?public_key={pk}&signature={sig}&message={msg}&nonce={n}&message_count={c}",
+                            "/bbs+/{g}/verify?public_key={pk}&signature={sig}&messages.0={msg}&nonce={n}&message_count={c}",
                             g = stringify!($g),
                             pk = keypair.public_key,
                             sig = signature,
@@ -213,4 +260,72 @@ mod test {
 
     test_roundtrip_bbs_plus!(g1);
     test_roundtrip_bbs_plus!(g2);
+
+    #[test]
+    fn test_roundtrip_bbs_plus_g1_pok() {
+        let nonce = BASE64_URL_SAFE_NO_PAD.encode("nonce");
+        let messages = [
+            b"message 1",
+            b"message 2",
+            b"message 3",
+            b"message 4",
+            b"message 5",
+        ]
+        .iter()
+        .map(|m| BASE64_URL_SAFE_NO_PAD.encode(m))
+        .collect::<Vec<_>>();
+
+        let client = Client::tracked(rocket()).unwrap();
+        let response = client
+            .get(format!(
+                "/bbs+/g1/keypair?nonce={n}&message_count={c}",
+                n = nonce,
+                c = messages.len()
+            ))
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+
+        let keypair = response.into_json::<KeyPair>().unwrap();
+
+        let response = client
+            .get(format!(
+                "/bbs+/g1/sign?secret_key={sk}&nonce={n}&message_count={c}&messages={msgs}",
+                sk = keypair.secret_key,
+                n = nonce,
+                c = messages.len(),
+                msgs = messages.join("&messages=")
+            ))
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+
+        let signature = response.into_json::<String>().unwrap();
+
+        let response = client
+            .get(format!(
+                "/bbs+/g1/pok/create?signature={signature}&nonce={nonce}&messages={msgs}&revealed_indexes={ri}",
+                msgs = messages.join("&messages="),
+                ri = ["0", "2", "4"].join("&revealed_indexes=")
+            ))
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+
+        let proof = response.into_json::<String>().unwrap();
+
+        let response = client
+            .get(format!(
+                "/bbs+/g1/pok/verify?proof={proof}{msgs}&public_key={pk}&nonce={nonce}&message_count={count}",
+                msgs = [0usize, 2, 4]
+                    .into_iter()
+                    .map(|i| format!("&revealed_messages[{i}]={msg}", msg = &messages[i]))
+                    .collect::<Vec<_>>().join(""),
+                pk = &keypair.public_key,
+                count = messages.len()
+            ))
+            .dispatch();
+        assert_eq!(response.status(), Status::Ok);
+
+        let success = response.into_json::<bool>().unwrap();
+
+        assert!(success);
+    }
 }

@@ -21,13 +21,8 @@ pub trait CryptoProvider {
     fn sk_into_bytes(sk: Self::SecretKey) -> Result<ByteArray>;
     fn sk_from_bytes(bytes: ByteArray) -> Result<Self::SecretKey>;
 
-    fn sign(sk: &Self::SecretKey, msg: ByteArray, params: Self::SignParams) -> Result<ByteArray>;
-    fn verify(
-        pk: Self::PublicKey,
-        msg: ByteArray,
-        sig: ByteArray,
-        params: Self::VerifyParams,
-    ) -> Result<bool>;
+    fn sign(sk: &Self::SecretKey, params: Self::SignParams) -> Result<ByteArray>;
+    fn verify(pk: Self::PublicKey, sig: ByteArray, params: Self::VerifyParams) -> Result<bool>;
 }
 
 #[derive(Debug)]
