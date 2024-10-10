@@ -28,6 +28,7 @@ use proof_system::prelude::{
 };
 use rand::{prelude::StdRng, RngCore, SeedableRng};
 
+#[allow(clippy::too_many_arguments)]
 fn create_bounds_proof<R: RngCore>(
     rng: &mut R,
     signature: ByteArray,
@@ -85,18 +86,15 @@ fn create_bounds_proof<R: RngCore>(
         "|revealed| < |messages| not satisfied!"
     );
 
-    reveal_indexes
-        .iter()
-        .map(|idx| {
-            if *idx == message_index as u32 {
-                Err(anyhow::anyhow!("Can't reveal message_index"))
-            } else if *idx >= message_count {
-                Err(anyhow::anyhow!("revealed index out of bounds: {idx}"))
-            } else {
-                Ok(())
-            }
-        })
-        .collect::<Result<(), _>>()?;
+    reveal_indexes.iter().try_for_each(|idx| {
+        if *idx == message_index as u32 {
+            Err(anyhow::anyhow!("Can't reveal message_index"))
+        } else if *idx >= message_count {
+            Err(anyhow::anyhow!("revealed index out of bounds: {idx}"))
+        } else {
+            Ok(())
+        }
+    })?;
 
     let proof_spec = {
         let mut statements = Statements::<Bls12_381>::new();
@@ -153,6 +151,7 @@ fn create_bounds_proof<R: RngCore>(
     Ok(proof)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn verify_proof(
     rng: &mut StdRng,
     proof: Proof<Bls12_381>,
@@ -179,7 +178,7 @@ fn verify_proof(
         PoKBBSSignatureG1Verifier::<Bls12_381>::new_statement_from_params(
             SignatureParamsG1::new::<Blake2b512>(&nonce, message_count),
             issuer_pk,
-            BTreeMap::from(revealed_messages),
+            revealed_messages,
         ),
     );
     // Statement that the age is within bounds
@@ -237,7 +236,7 @@ pub fn bbs_plus_bounds_check() -> anyhow::Result<()> {
     ]);
 
     let (issuer_pk, signature, messages, message_count) = {
-        let nonce = BASE64_URL_SAFE_NO_PAD.encode(&nonce_bytes);
+        let nonce = BASE64_URL_SAFE_NO_PAD.encode(nonce_bytes);
 
         let messages = vec![
             Fr::from(BigUint::from_bytes_le(b"message 1")),
@@ -258,7 +257,7 @@ pub fn bbs_plus_bounds_check() -> anyhow::Result<()> {
             let messages = messages
                 .iter()
                 .map(|m| {
-                    let b: BigUint = m.clone().into();
+                    let b: BigUint = (*m).into();
                     BASE64_URL_SAFE_NO_PAD.encode(b.to_bytes_le())
                 })
                 .collect::<Vec<_>>();
@@ -291,7 +290,7 @@ pub fn bbs_plus_bounds_check() -> anyhow::Result<()> {
             })
             .collect::<Vec<_>>();
 
-        let proof = create_bounds_proof(
+        create_bounds_proof(
             &mut rng,
             signature_bytes,
             BASE64_URL_SAFE_NO_PAD.encode(nonce_bytes),
@@ -302,26 +301,22 @@ pub fn bbs_plus_bounds_check() -> anyhow::Result<()> {
             max,
             revealed_indexes,
             proof_nonce.clone(),
-        )?;
-
-        proof
-    };
-
-    let success = {
-        verify_proof(
-            &mut rng,
-            proof,
-            nonce_bytes.to_vec(),
-            Provider::pk_into_bytes(issuer_pk.clone())?,
-            verifier_pk.vk.clone(),
-            message_count,
-            message_index,
-            min,
-            max,
-            revealed_messages,
-            proof_nonce,
         )?
     };
+
+    let success = verify_proof(
+        &mut rng,
+        proof,
+        nonce_bytes.to_vec(),
+        Provider::pk_into_bytes(issuer_pk.clone())?,
+        verifier_pk.vk.clone(),
+        message_count,
+        message_index,
+        min,
+        max,
+        revealed_messages,
+        proof_nonce,
+    )?;
 
     assert!(success);
 
