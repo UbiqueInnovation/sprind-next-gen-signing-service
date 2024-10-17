@@ -1,9 +1,7 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    io::Cursor,
-};
+use std::collections::BTreeMap;
 
-use anyhow::{ensure, Context};
+use std::{collections::BTreeSet, io::Cursor};
+
 use ark_bls12_381::{Bls12_381, Fr};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use base64::Engine;
@@ -28,41 +26,39 @@ use proof_system::prelude::{
 };
 use rand::{prelude::StdRng, RngCore, SeedableRng};
 
+#[derive(Debug, Clone)]
+pub enum ZkpProvable {
+    BoundsCheck {
+        signature_index: usize,
+        message_index: usize,
+        min: u64,
+        max: u64,
+    },
+}
+
+pub type ScalarField = Fr;
+pub type Signature = SignatureG1<Bls12_381>;
+pub type SignatureParams = SignatureParamsG1<Bls12_381>;
+pub type StatementProver = PoKBBSSignatureG1Prover<Bls12_381>;
+pub type BoundsStatementProver = BoundCheckLegoGroth16Prover<Bls12_381>;
+
 #[allow(clippy::too_many_arguments)]
-fn create_bounds_proof<R: RngCore>(
+fn create_proof<R: RngCore>(
     rng: &mut R,
-    signature: ByteArray,
-    nonce: String,
+    signatures: Vec<Signature>,
+    params: Vec<SignatureParams>,
     proving_key: ProvingKey<Bls12_381>,
     messages: Vec<String>,
-    message_index: usize,
-    min: u64,
-    max: u64,
+    provables: Vec<ZkpProvable>,
     reveal_indexes: BTreeSet<u32>,
     proof_nonce: Option<String>,
 ) -> anyhow::Result<Proof<Bls12_381>> {
-    type Signature = SignatureG1<Bls12_381>;
-    type SignatureParams = SignatureParamsG1<Bls12_381>;
-    type StatementProver = PoKBBSSignatureG1Prover<Bls12_381>;
-    type BoundsStatementProver = BoundCheckLegoGroth16Prover<Bls12_381>;
-
-    let signature = Signature::deserialize_compressed(Cursor::new(signature))?;
-
-    let nonce = BASE64_URL_SAFE_NO_PAD.decode(nonce)?;
     let proof_nonce: Option<Vec<u8>> = match proof_nonce {
         None => None,
         Some(nonce) => Some(BASE64_URL_SAFE_NO_PAD.decode(nonce)?),
     };
 
-    let message_count = messages.len() as u32;
-
-    let message = Fr::from(BigUint::from_bytes_le(
-        &BASE64_URL_SAFE_NO_PAD.decode(
-            messages
-                .get(message_index)
-                .context("message_index out of bounds!")?,
-        )?,
-    ));
+    // TODO: some input sanity validation.
 
     let messages = messages
         .into_iter()
@@ -80,39 +76,47 @@ fn create_bounds_proof<R: RngCore>(
         .filter(|(idx, _)| reveal_indexes.contains(&(*idx as u32)))
         .collect::<BTreeMap<usize, Fr>>();
 
-    let params = SignatureParams::new::<Blake2b512>(&nonce, message_count);
-
-    ensure!(min < max, "min < max not satisfied!");
-
-    ensure!(
-        (reveal_indexes.len() as u32) < message_count,
-        "|revealed| < |messages| not satisfied!"
-    );
-
-    reveal_indexes.iter().try_for_each(|idx| {
-        if *idx == message_index as u32 {
-            Err(anyhow::anyhow!("Can't reveal message_index"))
-        } else if *idx >= message_count {
-            Err(anyhow::anyhow!("revealed index out of bounds: {idx}"))
-        } else {
-            Ok(())
-        }
-    })?;
+    let unrevealed_messages = messages
+        .clone()
+        .into_iter()
+        .enumerate()
+        //                                         ugly ↓
+        .filter(|(idx, _)| !reveal_indexes.contains(&(*idx as u32)))
+        .collect::<BTreeMap<usize, Fr>>();
 
     let proof_spec = {
         let mut statements = Statements::<Bls12_381>::new();
-        statements.add(StatementProver::new_statement_from_params(
-            params,
-            revealed_messages.clone(),
-        ));
-        statements.add(
-            BoundsStatementProver::new_statement_from_params(min, max, proving_key)
-                .map_err(|err| anyhow::anyhow!("BoundsProver error: {err:?}"))?,
-        );
 
         let mut meta_statements = MetaStatements::new();
-        meta_statements
-            .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, message_index), (1, 0)])));
+
+        for (idx, provable) in provables.clone().into_iter().enumerate() {
+            match provable {
+                ZkpProvable::BoundsCheck {
+                    signature_index,
+                    message_index,
+                    min,
+                    max,
+                } => {
+                    statements.add(StatementProver::new_statement_from_params(
+                        params.get(signature_index).unwrap().clone(),
+                        revealed_messages.clone(),
+                    ));
+                    statements.add(
+                        BoundsStatementProver::new_statement_from_params(
+                            min,
+                            max,
+                            proving_key.clone(),
+                        )
+                        .map_err(|err| anyhow::anyhow!("BoundsProver error: {err:?}"))?,
+                    );
+
+                    meta_statements.add_witness_equality(EqualWitnesses(BTreeSet::from([
+                        (idx * 2, message_index),
+                        (1, 0),
+                    ])));
+                }
+            }
+        }
 
         let proof_spec = ProofSpec::new(statements, meta_statements, vec![], None);
         proof_spec
@@ -125,18 +129,24 @@ fn create_bounds_proof<R: RngCore>(
     let witnesses = {
         let mut witnesses = Witnesses::new();
 
-        // Witness for the signature
-        witnesses.add(PoKBBSSignatureG1::new_as_witness(
-            signature,
-            messages
-                .into_iter()
-                .enumerate()
-                //                                          ugly ↓
-                .filter(|(idx, _)| !reveal_indexes.contains(&(*idx as u32)))
-                .collect(),
-        ));
-        // Witness for the bounds check
-        witnesses.add(Witness::BoundCheckLegoGroth16(message));
+        for provable in provables.clone().into_iter() {
+            match provable {
+                ZkpProvable::BoundsCheck {
+                    signature_index,
+                    message_index,
+                    ..
+                } => {
+                    witnesses.add(PoKBBSSignatureG1::new_as_witness(
+                        signatures.get(signature_index).unwrap().clone(),
+                        unrevealed_messages.clone(),
+                    ));
+
+                    witnesses.add(Witness::BoundCheckLegoGroth16(
+                        messages.get(message_index).unwrap().clone(),
+                    ));
+                }
+            }
+        }
 
         witnesses
     };
@@ -205,7 +215,7 @@ fn verify_proof(
 }
 
 #[test]
-pub fn bbs_plus_bounds_check() -> anyhow::Result<()> {
+pub fn zkp_sample() -> anyhow::Result<()> {
     let mut rng = StdRng::seed_from_u64(1337);
     // USE-CASE: We have 1 claim (message), that is our age
     // We want to create a ZKP that our age is >= 18, without
@@ -239,6 +249,7 @@ pub fn bbs_plus_bounds_check() -> anyhow::Result<()> {
             Fr::from(BigUint::from_bytes_le(b"message 1")),
             Fr::from(age),
             Fr::from(BigUint::from_bytes_le(b"message 2")),
+            Fr::from(age),
         ];
 
         let message_count = messages.len() as u32;
@@ -287,15 +298,21 @@ pub fn bbs_plus_bounds_check() -> anyhow::Result<()> {
             })
             .collect::<Vec<_>>();
 
-        create_bounds_proof(
+        create_proof(
             &mut rng,
-            signature_bytes,
-            BASE64_URL_SAFE_NO_PAD.encode(nonce_bytes),
+            vec![signature],
+            vec![SignatureParams::new::<Blake2b512>(
+                nonce_bytes,
+                message_count,
+            )],
             verifier_pk.clone(),
             messages,
-            message_index,
-            min,
-            max,
+            vec![ZkpProvable::BoundsCheck {
+                signature_index: 0,
+                message_index,
+                min,
+                max,
+            }],
             revealed_indexes,
             proof_nonce.clone(),
         )?
