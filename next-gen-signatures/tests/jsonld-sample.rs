@@ -7,8 +7,23 @@ use json_ld::{
     syntax::{Parse, Value},
     RemoteDocument,
 };
+use next_gen_signatures::crypto::common::json_ld_to_rdf;
 use rdf_types::vocabulary::{IndexVocabulary, IriVocabularyMut};
 use static_iref::iri;
+
+#[tokio::test]
+async fn test_json_ld_to_rdf() {
+    let data = r#"
+    {
+        "@context": "http://schema.org/",
+        "@type": "Person",
+        "name": "John Doe"
+    }"#;
+
+    let rdf = json_ld_to_rdf(data).await.unwrap();
+
+    println!("{rdf}")
+}
 
 #[tokio::test]
 async fn jsonld_sample() {
