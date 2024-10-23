@@ -5,6 +5,7 @@ use json_ld::{
 use oxrdf::Graph;
 use oxttl::NTriplesParser;
 use rdf_types::generator;
+use std::fmt::Write;
 
 pub async fn json_ld_to_rdf(data: &str, prefix: Option<String>) -> anyhow::Result<String> {
     let doc = RemoteDocument::new(None, None, Value::parse_str(data)?.0);
@@ -19,10 +20,10 @@ pub async fn json_ld_to_rdf(data: &str, prefix: Option<String>) -> anyhow::Resul
 
     let mut rdf = doc.to_rdf(&mut generator, &loader).await?;
 
-    Ok(rdf
-        .cloned_quads()
-        .map(|q| format!("{} .\n", q.to_string()))
-        .collect::<String>())
+    Ok(rdf.cloned_quads().fold(String::new(), |mut output, q| {
+        let _ = writeln!(output, "{q} .");
+        output
+    }))
 }
 
 pub fn get_graph_from_ntriples(ntriples: &str) -> anyhow::Result<Graph> {

@@ -228,7 +228,7 @@ async fn jsonld_zkp() {
     .await
     .unwrap()
     // NOTE: this is a hack
-    .replace("<to:be:verified>", &blank2.to_string())];
+    .replace("<to:be:verified>", blank2.as_ref())];
 
     println!("{}", predicates[0]);
 

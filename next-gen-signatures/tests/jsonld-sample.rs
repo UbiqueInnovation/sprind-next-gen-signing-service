@@ -49,14 +49,14 @@ async fn jsonld_sample() {
         .0,
     );
 
-    let mut loader = ReqwestLoader::new();
+    let loader = ReqwestLoader::new();
 
     let mut generator = rdf_types::generator::Blank::new_with_prefix("b".to_string());
 
     let nodes = doc
         .flatten_using(
             &mut generator,
-            &mut loader,
+            &loader,
             Options {
                 ordered: true,
                 ..Default::default()
@@ -74,7 +74,7 @@ async fn jsonld_sample() {
     let mut compact = input
         .compact_using(
             context,
-            &mut loader,
+            &loader,
             Options {
                 ..Default::default()
             },

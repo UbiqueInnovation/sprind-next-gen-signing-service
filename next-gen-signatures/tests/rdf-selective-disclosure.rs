@@ -162,7 +162,7 @@ fn get_example_deanon_map_string_with_hidden_literal() -> HashMap<String, String
         .collect()
 }
 fn get_example_deanon_map_with_hidden_literal() -> HashMap<NamedOrBlankNode, Term> {
-    get_deanon_map_from_string(&&get_example_deanon_map_string_with_hidden_literal()).unwrap()
+    get_deanon_map_from_string(&get_example_deanon_map_string_with_hidden_literal()).unwrap()
 }
 
 #[test]

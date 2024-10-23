@@ -118,7 +118,7 @@ const DEANON_MAP_WITH_HIDDEN_LITERAL: [(&str, &str); 3] = [
 ];
 
 fn get_deanon_map_string(map: &[(&str, &str)]) -> HashMap<String, String> {
-    map.into_iter()
+    map.iter()
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect()
 }

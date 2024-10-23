@@ -142,7 +142,7 @@ fn create_proof<R: RngCore>(
                     ));
 
                     witnesses.add(Witness::BoundCheckLegoGroth16(
-                        messages.get(message_index).unwrap().clone(),
+                        *messages.get(message_index).unwrap(),
                     ));
                 }
             }

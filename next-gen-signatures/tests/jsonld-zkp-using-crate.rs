@@ -69,7 +69,7 @@ pub async fn canonicalize_jsonld(data: &str) -> Graph {
 
     let nquads = rdf
         .cloned_quads()
-        .map(|q| format!("{} .", q.to_string()))
+        .map(|q| format!("{} .", q))
         .collect::<Vec<_>>()
         .join("\n");
 
