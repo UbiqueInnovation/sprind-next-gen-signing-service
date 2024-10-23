@@ -2703,6 +2703,7 @@ dependencies = [
  "sophia",
  "static-iref 3.0.0",
  "tokio",
+ "unsigned-varint",
 ]
 
 [[package]]

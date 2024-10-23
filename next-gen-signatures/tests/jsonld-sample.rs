@@ -20,7 +20,7 @@ async fn test_json_ld_to_rdf() {
         "name": "John Doe"
     }"#;
 
-    let rdf = json_ld_to_rdf(data).await.unwrap();
+    let rdf = json_ld_to_rdf(data, Some("b".to_string())).await.unwrap();
 
     println!("{rdf}")
 }

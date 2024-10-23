@@ -115,7 +115,7 @@ fn verify(_pk: (), vp: VerifiableCredential) -> bool {
 }
 
 #[tokio::test]
-async fn jsonld_zkp() {
+async fn jsonld_zkp_using_crate() {
     // In theory we have some data that we want to issue / present / verify
     let data = r#"
 {
