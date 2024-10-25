@@ -1,5 +1,5 @@
 name: 'Rust Checks: rustfml, clippy & test'
-'on':
+on:
   pull_request: null
   workflow_dispatch: null
   push:
@@ -11,32 +11,11 @@ jobs:
     steps:
       - name: Check clippy
         uses: UbiqueInnovation/action-systems-rust-clippy@main
+        with:
+          toolchain: nightly
       - name: Check formatting
         uses: UbiqueInnovation/action-systems-rust-format@main
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
           toolchain: nightly
-          components: cargo
-      - name: Run tests
-        run: |
-          cargo +nightly test --workspace --all-targets --all-features -- -Z unstable-options --format json --report-time | tee results.json
-      - name: Prepare junit report
-        id: cargo_reporter
-        uses: innoq/action-cargo-test-report@v1
-        with:
-          cargo-test-report-json: results.json
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v4.3.1
-        if: always()
-        with:
-          check_name: Test Report
-          fail_on_failure: true
-          require_tests: true
-          summary: '${{ steps.cargo_reporter.outputs.summary }}'
+      - name: Run and report tests
+        uses: UbiqueInnovation/action-systems-rust-test@main
