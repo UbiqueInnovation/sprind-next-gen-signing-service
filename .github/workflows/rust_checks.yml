@@ -6,6 +6,11 @@ name: 'Rust Checks: rustfml, clippy & test'
     branches:
       - main
 jobs:
+  check-all:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check clippy
+        uses: UbiqueInnovation/action-systems-rust-clippy@main
   rustfmt:
     runs-on: ubuntu-latest
     steps:
@@ -19,19 +24,6 @@ jobs:
           components: rustfmt
       - name: Run rustfmt
         run: cargo fmt --all -- --check
-  clippy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: clippy
-      - name: Run clippy
-        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
   test:
     runs-on: ubuntu-latest
     steps:
