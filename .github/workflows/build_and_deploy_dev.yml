@@ -20,34 +20,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
-      - uses: azure/docker-login@v1
+      - name: Build and push docker image
+        uses: UbiqueInnovation/action-systems-docker-build-and-push@v1.0.0
         with:
-          login-server: '${{ secrets.UBIQUE_ACR_REGISTRY }}'
-          username: '${{ secrets.UBIQUE_ACR_USERNAME }}'
-          password: '${{ secrets.UBIQUE_ACR_PASSWORD }}'
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Docker Metadata
-        id: docker_meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ${{ secrets.UBIQUE_ACR_REGISTRY }}/next-gen-signing-service-dev
-          tags: |
-            # dynamically set the branch name and sha as a custom tag if tag_add_commithash is enabled
-            type=raw,value=${{ inputs.repo_branch || github.ref_name }}-{{sha}},enable=true
-            # set latest tag for default branch
-            type=raw,value=latest,enable=true
-      - name: Docker build and push
-        uses: docker/build-push-action@v5
-        with:
-          tags: '${{ steps.docker_meta.outputs.tags }}'
-          labels: '${{ steps.docker_meta.outputs.labels }}'
-          file: ./Dockerfile
-          push: true
-          context: .
-          cache-from: type=gha
-          cache-to: 'type=gha,mode=max'
+          image_name: next-gen-signing-service-dev
+          registry: ${{ secrets.UBIQUE_ACR_REGISTRY }}
+          username: ${{ secrets.UBIQUE_ACR_USERNAME }}
+          password: ${{ secrets.UBIQUE_ACR_PASSWORD }}
   deploy:
     name: Deploy Dev Webserver
     uses: UbiqueInnovation/workflows-backend/.github/workflows/k8s_deploy.yml@main
