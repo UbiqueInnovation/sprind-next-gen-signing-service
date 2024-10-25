@@ -76,7 +76,7 @@ mod bbs_plus_routes {
 
 #[get("/")]
 fn index() -> String {
-    format!("SPRIND Signing Service v{VERSION}")
+    format!("SPRIND Signing Service v{VERSION} Test")
 }
 
 #[launch]
