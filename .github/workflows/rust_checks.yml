@@ -9,6 +9,8 @@ jobs:
   check-all:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
       - name: Check clippy
         uses: UbiqueInnovation/action-systems-rust-clippy@main
       - name: Check formatting
