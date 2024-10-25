@@ -10,6 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: UbiqueInnovation/action-systems-rust-clippy@main
-      - uses: UbiqueInnovation/action-systems-rust-format@main
-      - uses: UbiqueInnovation/action-systems-rust-test@main
+      - uses: UbiqueInnovation/action-systems-rust-clippy@v1
+      - uses: UbiqueInnovation/action-systems-rust-format@v1
+      - uses: UbiqueInnovation/action-systems-rust-test@v1
