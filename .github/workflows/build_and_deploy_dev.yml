@@ -21,9 +21,10 @@ jobs:
         with:
           lfs: true
       - name: Build and push docker image
-        uses: UbiqueInnovation/action-systems-docker-build-and-push@v1.0.0
+        uses: UbiqueInnovation/action-systems-docker-build-and-push@v2.0.0
         with:
           image_name: next-gen-signing-service-dev
+          version_name: ${{ inputs.repo_branch || github.ref_name }}
           registry: ${{ secrets.UBIQUE_ACR_REGISTRY }}
           username: ${{ secrets.UBIQUE_ACR_USERNAME }}
           password: ${{ secrets.UBIQUE_ACR_PASSWORD }}
