@@ -11,11 +11,7 @@ jobs:
     steps:
       - name: Check clippy
         uses: UbiqueInnovation/action-systems-rust-clippy@main
-        with:
-          toolchain: nightly
       - name: Check formatting
         uses: UbiqueInnovation/action-systems-rust-format@main
-        with:
-          toolchain: nightly
       - name: Run and report tests
         uses: UbiqueInnovation/action-systems-rust-test@main
