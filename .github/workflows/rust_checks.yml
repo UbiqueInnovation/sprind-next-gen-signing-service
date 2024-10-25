@@ -11,19 +11,8 @@ jobs:
     steps:
       - name: Check clippy
         uses: UbiqueInnovation/action-systems-rust-clippy@main
-  rustfmt:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: rustfmt
-      - name: Run rustfmt
-        run: cargo fmt --all -- --check
+      - name: Check formatting
+        uses: UbiqueInnovation/action-systems-rust-format@main
   test:
     runs-on: ubuntu-latest
     steps:
