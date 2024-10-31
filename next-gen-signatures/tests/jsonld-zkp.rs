@@ -60,6 +60,10 @@ async fn jsonld_zkp() {
                         "coolNumber": {
                             "@id": "http://example.org/coolNumber",
                             "@type": "@id"
+                        },
+                        "coolString": {
+                            "@id": "http://example.org/coolString",
+                            "@type": "@id"
                         }
                     }
                 ],
@@ -71,7 +75,11 @@ async fn jsonld_zkp() {
                 "credentialSubject": {
                     "id": "did:example:coolstuff",
                     "type": "CoolStuff",
-                    "coolNumber": 1337
+                    "coolNumber": 1337,
+                    "coolString": {
+                        "type": "coolString",
+                        "@value": "John Doe"
+                    }
                 }
             }"#,
         Some("b".to_string()),
@@ -118,6 +126,10 @@ async fn jsonld_zkp() {
                         "coolNumber": {{
                             "@id": "http://example.org/coolNumber",
                             "@type": "@id"
+                        }},
+                        "coolString": {{
+                            "@id": "http://example.org/coolString",
+                            "@type": "@id"
                         }}
                     }}
                 ],
@@ -131,6 +143,10 @@ async fn jsonld_zkp() {
                     "type": "CoolStuff",
                     "coolNumber": {{
                         "@id": "{blank2}"
+                    }},
+                    "coolString": {{
+                        "type": "coolString",
+                        "@value": "John Doe"
                     }}
                 }}
         }}"#,
@@ -263,11 +279,19 @@ async fn jsonld_zkp() {
     )
     .unwrap();
 
+    println!("{proof}");
+
     let proof = RdfQuery::new(&proof).unwrap();
-    println!(
-        "{:#}",
-        proof.to_json(Some(GraphName::DefaultGraph), None, None)
+
+    let proof_json = proof.to_json(Some(GraphName::DefaultGraph), None, None);
+    assert_eq!(
+        proof_json["https://www.w3.org/2018/credentials#verifiableCredential"]
+            ["https://www.w3.org/2018/credentials#credentialSubject"]
+            ["http://example.org/coolString"],
+        "John Doe"
     );
+
+    println!("{:#}", proof_json);
 
     let success = rdf_proofs::verify_proof_string(
         &mut rng,
