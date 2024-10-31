@@ -4,7 +4,6 @@ use ark_bls12_381::Bls12_381;
 use legogroth16::circom::{CircomCircuit, R1CS as R1CSOrig};
 use multibase::Base;
 use next_gen_signatures::crypto::common::{get_graph_from_ntriples, json_ld_to_rdf};
-use oxrdf::Graph;
 use rand::{prelude::StdRng, SeedableRng};
 use rdf_proofs::{
     ark_to_base64url, CircuitString, KeyGraph, KeyPairBase58Btc, VcPairString, VerifiableCredential,
@@ -60,9 +59,6 @@ async fn jsonld_zkp() {
                         "coolNumber": {
                             "@id": "http://example.org/coolNumber",
                             "@type": "@id"
-                        },
-                        "coolName": {
-                            "@id": "http://schema.org/Name"
                         }
                     }
                 ],
@@ -74,7 +70,6 @@ async fn jsonld_zkp() {
                 "credentialSubject": {
                     "id": "did:example:coolstuff",
                     "type": "CoolStuff",
-                    "coolName": "John",
                     "coolNumber": 1337
                 }
             }"#,
@@ -122,9 +117,6 @@ async fn jsonld_zkp() {
                         "coolNumber": {{
                             "@id": "http://example.org/coolNumber",
                             "@type": "@id"
-                        }},
-                        "coolName": {{
-                            "@id": "http://example.org/coolName"
                         }}
                     }}
                 ],
@@ -136,7 +128,6 @@ async fn jsonld_zkp() {
                 "credentialSubject": {{
                     "@id": "{blank1}",
                     "type": "CoolStuff",
-                    "coolName": "John",
                     "coolNumber": {{
                         "@id": "{blank2}"
                     }}
@@ -271,8 +262,6 @@ async fn jsonld_zkp() {
     .unwrap();
 
     println!("{proof}");
-
-    let proof_graph = get_graph_from_ntriples(&proof).unwrap();
 
     let success = rdf_proofs::verify_proof_string(
         &mut rng,
