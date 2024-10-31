@@ -114,12 +114,8 @@ impl RdfQuery {
                 let k = resolve_ctx(k);
 
                 match v {
-                    Term::Literal(val) => {
-                        println!("I know {k}={}", val.value().to_string());
-                        (k, JsonValue::String(val.value().to_string()))
-                    }
+                    Term::Literal(val) => (k, JsonValue::String(val.value().to_string())),
                     Term::BlankNode(node) => {
-                        println!("Looking up {k}={node}");
                         let mut graph =
                             lookup.get_graph_by_name(GraphName::BlankNode(node.clone()));
                         if graph.is_empty() {
@@ -134,7 +130,6 @@ impl RdfQuery {
                         }
                     }
                     Term::NamedNode(node) => {
-                        println!("Looking up {k}={node}");
                         let mut graph =
                             lookup.get_graph_by_name(GraphName::NamedNode(node.clone()));
                         if graph.is_empty() {
@@ -169,7 +164,7 @@ impl RdfQuery {
             lookup = lookup.get_graph_by_types(types);
         }
 
-        let mut json = lookup.to_json_impl(&self, &context);
+        let mut json = lookup.to_json_impl(self, &context);
 
         if let Some(context) = context {
             json["@context"] = JsonValue::Array(
