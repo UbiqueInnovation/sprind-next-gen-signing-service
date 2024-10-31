@@ -263,11 +263,15 @@ async fn jsonld_zkp() {
     )
     .unwrap();
 
-    println!("{proof}");
+    let proof = RdfQuery::new(&proof).unwrap();
+    println!(
+        "{:#}",
+        proof.to_json(Some(GraphName::DefaultGraph), None, None)
+    );
 
     let success = rdf_proofs::verify_proof_string(
         &mut rng,
-        &proof,
+        &proof.to_rdf_string(),
         &issuer.to_rdf_string(),
         None,
         None,
