@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use ark_bls12_381::Bls12_381;
 use legogroth16::circom::{CircomCircuit, R1CS as R1CSOrig};
 use multibase::Base;
-use next_gen_signatures::crypto::common::{get_graph_from_ntriples, json_ld_to_rdf};
+use next_gen_signatures::rdf::RdfQuery;
+use oxrdf::GraphName;
 use rand::{prelude::StdRng, SeedableRng};
 use rdf_proofs::{
     ark_to_base64url, CircuitString, KeyGraph, KeyPairBase58Btc, VcPairString, VerifiableCredential,
@@ -19,7 +20,7 @@ async fn jsonld_zkp() {
     let issuer_pk = issuer_kp.public_key;
     let issuer_sk = issuer_kp.secret_key;
 
-    let issuer = json_ld_to_rdf(
+    let issuer = RdfQuery::from_jsonld(
         &format!(
             r#"
             {{
@@ -42,9 +43,9 @@ async fn jsonld_zkp() {
     )
     .await
     .unwrap();
-    println!("{issuer}");
+    println!("{}", issuer.to_rdf_string());
 
-    let data = json_ld_to_rdf(
+    let data = RdfQuery::from_jsonld(
         r#"
             {
                 "@context": [
@@ -77,9 +78,9 @@ async fn jsonld_zkp() {
     )
     .await
     .unwrap();
-    println!("{data}");
+    println!("{}", data.to_rdf_string());
 
-    let proof_config = json_ld_to_rdf(
+    let proof_config = RdfQuery::from_jsonld(
         r#"
         {
             "@context": "https://www.w3.org/ns/data-integrity/v1",
@@ -93,15 +94,15 @@ async fn jsonld_zkp() {
     )
     .await
     .unwrap();
-    println!("{proof_config}");
+    println!("{}", proof_config.to_rdf_string());
 
-    let key_graph: KeyGraph = get_graph_from_ntriples(&issuer).unwrap().into();
+    let key_graph: KeyGraph = issuer.as_graph(GraphName::DefaultGraph).into();
 
     let mut gen = generator::Blank::new_with_prefix("e".to_string());
     let blank1 = gen.next_blank_id();
     let blank2 = gen.next_blank_id();
 
-    let disc_data = json_ld_to_rdf(
+    let disc_data = RdfQuery::from_jsonld(
         &format!(
             r#"
             {{
@@ -138,15 +139,15 @@ async fn jsonld_zkp() {
     )
     .await
     .unwrap();
-    println!("{disc_data}");
+    println!("{}", disc_data.to_rdf_string());
 
     let mut vc = VerifiableCredential::new(
-        get_graph_from_ntriples(&data).unwrap(),
-        get_graph_from_ntriples(&proof_config).unwrap(),
+        data.as_graph(GraphName::DefaultGraph),
+        proof_config.as_graph(GraphName::DefaultGraph),
     );
     rdf_proofs::sign(&mut rng, &mut vc, &key_graph).unwrap();
     let disc_vc = VerifiableCredential::new(
-        get_graph_from_ntriples(&disc_data).unwrap(),
+        disc_data.as_graph(GraphName::DefaultGraph),
         vc.proof.clone(),
     );
     println!("{disc_vc}");
@@ -181,7 +182,7 @@ async fn jsonld_zkp() {
     let snark_proving_key_string = ark_to_base64url(&snark_proving_key).unwrap();
     let snark_verifying_key_string = ark_to_base64url(&snark_proving_key.vk).unwrap();
 
-    let predicates = vec![json_ld_to_rdf(
+    let predicates = vec![RdfQuery::from_jsonld(
         r#"
         {
             "@context": {
@@ -227,6 +228,7 @@ async fn jsonld_zkp() {
     )
     .await
     .unwrap()
+    .to_rdf_string()
     // NOTE: this is a hack
     .replace("<to:be:verified>", blank2.as_ref())];
 
@@ -250,7 +252,7 @@ async fn jsonld_zkp() {
         &mut rng,
         &vc_pairs,
         &deanon_map,
-        &issuer,
+        &issuer.to_rdf_string(),
         None,
         None,
         None,
@@ -266,7 +268,7 @@ async fn jsonld_zkp() {
     let success = rdf_proofs::verify_proof_string(
         &mut rng,
         &proof,
-        &issuer,
+        &issuer.to_rdf_string(),
         None,
         None,
         Some(snark_verifying_keys),

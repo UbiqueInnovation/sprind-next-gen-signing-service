@@ -7,7 +7,7 @@ use json_ld::{
     syntax::{Parse, Value},
     RemoteDocument,
 };
-use next_gen_signatures::crypto::common::json_ld_to_rdf;
+use next_gen_signatures::rdf::RdfQuery;
 use rdf_types::vocabulary::{IndexVocabulary, IriVocabularyMut};
 use static_iref::iri;
 
@@ -20,9 +20,11 @@ async fn test_json_ld_to_rdf() {
         "name": "John Doe"
     }"#;
 
-    let rdf = json_ld_to_rdf(data, Some("b".to_string())).await.unwrap();
+    let graph = RdfQuery::from_jsonld(data, Some("b".to_string()))
+        .await
+        .unwrap();
 
-    println!("{rdf}")
+    println!("{}", graph.to_rdf_string())
 }
 
 #[tokio::test]
