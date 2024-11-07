@@ -44,7 +44,7 @@ async fn json_ld_flow() {
     let issuer_key_id = format!("{issuer_id}#bls12_381-g2-pub001");
 
     // issuance of a verifiable credential
-    let (issuer_pk, vc) = {
+    let (_issuer_pk, vc) = {
         let issuer_kp = KeyPairBase58Btc::new(&mut rng).unwrap();
         let issuer_pk = issuer_kp.public_key;
 
@@ -171,7 +171,7 @@ async fn json_ld_flow() {
     // verifying_key used later to verify the proof.
     // variable is the placeholder for the variable the
     //   the proof is over.
-    let (predicates, circuits, verifying_key, variable) = {
+    let (_predicates, _circuits, _verifying_key, _variable) = {
         let verify_date = "2000-01-01T00:00:00Z";
         let verify_var = "to:be:verified";
 
