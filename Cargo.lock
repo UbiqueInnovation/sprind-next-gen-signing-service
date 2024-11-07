@@ -403,12 +403,6 @@ checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
 
 [[package]]
 name = "base64"
-version = "0.21.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d297deb1925b89f2ccc13d7635fa0714f12c87adce1c75356b39ca9b7178567"
-
-[[package]]
-name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
@@ -1761,19 +1755,6 @@ dependencies = [
 
 [[package]]
 name = "hyper-tls"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6183ddfa99b85da61a140bea0efc93fdf56ceaa041b37d553518030827f9905"
-dependencies = [
- "bytes",
- "hyper 0.14.30",
- "native-tls",
- "tokio",
- "tokio-native-tls",
-]
-
-[[package]]
-name = "hyper-tls"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
@@ -1911,16 +1892,6 @@ checksum = "187674a687eed5fe42285b40c6291f9a01517d415fad1c3cbc6a9f778af7fcd4"
 
 [[package]]
 name = "iref"
-version = "2.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72758dab8e7c250a8643189063072ab0abf48e27eb453e0a38bbd2d7770ee8ec"
-dependencies = [
- "pct-str 1.2.0",
- "smallvec",
-]
-
-[[package]]
-name = "iref"
 version = "3.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "374372d9ca7331cec26f307b12552554849143e6b2077be3553576aa9aa8258c"
@@ -1934,7 +1905,7 @@ version = "3.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b10559a0d518effd4f2cee107f40f83acf8583dcd3e6760b9b60293b0d2c2a70"
 dependencies = [
- "pct-str 2.0.0",
+ "pct-str",
  "smallvec",
  "static-regular-grammar",
  "thiserror",
@@ -2010,63 +1981,22 @@ checksum = "32f12e624eaeb74accb9bb48f01cb071427f68115aaafa5689acb372d7e22977"
 
 [[package]]
 name = "json-ld"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2346062cec5e4bd2bec44378543e1e567becc6d9cf2907c468115f0f065ea0e6"
-dependencies = [
- "contextual",
- "futures",
- "json-ld-compaction 0.15.1",
- "json-ld-context-processing 0.15.1",
- "json-ld-core 0.15.1",
- "json-ld-expansion 0.15.1",
- "json-ld-syntax 0.15.1",
- "json-syntax 0.9.6",
- "locspan 0.7.16",
- "rdf-types 0.15.4",
- "thiserror",
-]
-
-[[package]]
-name = "json-ld"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a5e03a47a0118ce03ca3a843d1cc1d6d89c91c0b035dab53ed57ad07068b4a3"
 dependencies = [
  "contextual",
  "futures",
- "iref 3.2.2",
- "json-ld-compaction 0.21.1",
- "json-ld-context-processing 0.21.1",
- "json-ld-core 0.21.1",
- "json-ld-expansion 0.21.1",
+ "iref",
+ "json-ld-compaction",
+ "json-ld-context-processing",
+ "json-ld-core",
+ "json-ld-expansion",
  "json-ld-serialization",
- "json-ld-syntax 0.21.1",
- "json-syntax 0.12.5",
- "locspan 0.8.2",
- "rdf-types 0.22.4",
- "thiserror",
-]
-
-[[package]]
-name = "json-ld-compaction"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43cd4b98ee8c3be2b7cf67fd3f3225a58201c0e8fd1d9c8dec04578d853003b7"
-dependencies = [
- "contextual",
- "derivative",
- "futures",
- "iref 2.2.3",
- "json-ld-context-processing 0.15.1",
- "json-ld-core 0.15.1",
- "json-ld-expansion 0.15.1",
- "json-ld-syntax 0.15.1",
- "json-syntax 0.9.6",
- "langtag 0.3.4",
- "locspan 0.7.16",
- "mown",
- "rdf-types 0.15.4",
+ "json-ld-syntax",
+ "json-syntax",
+ "locspan",
+ "rdf-types",
  "thiserror",
 ]
 
@@ -2080,32 +2010,15 @@ dependencies = [
  "educe 0.4.23",
  "futures",
  "indexmap 2.5.0",
- "iref 3.2.2",
- "json-ld-context-processing 0.21.1",
- "json-ld-core 0.21.1",
- "json-ld-expansion 0.21.1",
- "json-ld-syntax 0.21.1",
- "json-syntax 0.12.5",
- "langtag 0.4.0",
+ "iref",
+ "json-ld-context-processing",
+ "json-ld-core",
+ "json-ld-expansion",
+ "json-ld-syntax",
+ "json-syntax",
+ "langtag",
  "mown",
- "rdf-types 0.22.4",
- "thiserror",
-]
-
-[[package]]
-name = "json-ld-context-processing"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d7c15151cc0478f0c5742a188897553ecfa9011d0eb6bf639507bd3006de9df"
-dependencies = [
- "contextual",
- "futures",
- "iref 2.2.3",
- "json-ld-core 0.15.1",
- "json-ld-syntax 0.15.1",
- "locspan 0.7.16",
- "mown",
- "rdf-types 0.15.4",
+ "rdf-types",
  "thiserror",
 ]
 
@@ -2117,43 +2030,12 @@ checksum = "6aaf38d5a714ed573340f921a67c212935335e055ff2bb785337d38f6be282a4"
 dependencies = [
  "contextual",
  "futures",
- "iref 3.2.2",
- "json-ld-core 0.21.1",
- "json-ld-syntax 0.21.1",
+ "iref",
+ "json-ld-core",
+ "json-ld-syntax",
  "mown",
  "owning_ref",
- "rdf-types 0.22.4",
- "thiserror",
-]
-
-[[package]]
-name = "json-ld-core"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9eea3cb55f5fd5f79b43226b50a24319b51a4eac06114c9bda4e0aa99f7697f2"
-dependencies = [
- "bytes",
- "contextual",
- "derivative",
- "futures",
- "hashbrown 0.13.2",
- "iref 2.2.3",
- "json-ld-syntax 0.15.1",
- "json-syntax 0.9.6",
- "langtag 0.3.4",
- "locspan 0.7.16",
- "locspan-derive",
- "log",
- "mime",
- "mown",
- "once_cell",
- "permutohedron",
- "pretty_dtoa",
- "rdf-types 0.15.4",
- "reqwest 0.11.27",
- "ryu-js",
- "smallvec",
- "static-iref 2.0.0",
+ "rdf-types",
  "thiserror",
 ]
 
@@ -2169,45 +2051,24 @@ dependencies = [
  "futures",
  "hashbrown 0.13.2",
  "indexmap 2.5.0",
- "iref 3.2.2",
- "json-ld-syntax 0.21.1",
- "json-syntax 0.12.5",
- "langtag 0.4.0",
+ "iref",
+ "json-ld-syntax",
+ "json-syntax",
+ "langtag",
  "linked-data",
  "log",
  "mime",
  "once_cell",
  "permutohedron",
  "pretty_dtoa",
- "rdf-types 0.22.4",
- "reqwest 0.12.7",
+ "rdf-types",
+ "reqwest",
  "reqwest-middleware",
  "ryu-js",
  "smallvec",
- "static-iref 3.0.0",
+ "static-iref",
  "thiserror",
  "utf8-decode",
-]
-
-[[package]]
-name = "json-ld-expansion"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a292441a2258065cea9579976613976af672cf9dd56cf9e2a3bb1731a6242bf"
-dependencies = [
- "contextual",
- "derivative",
- "futures",
- "iref 2.2.3",
- "json-ld-context-processing 0.15.1",
- "json-ld-core 0.15.1",
- "json-ld-syntax 0.15.1",
- "json-syntax 0.9.6",
- "langtag 0.3.4",
- "locspan 0.7.16",
- "mown",
- "rdf-types 0.15.4",
- "thiserror",
 ]
 
 [[package]]
@@ -2220,14 +2081,14 @@ dependencies = [
  "educe 0.4.23",
  "futures",
  "indexmap 2.5.0",
- "iref 3.2.2",
- "json-ld-context-processing 0.21.1",
- "json-ld-core 0.21.1",
- "json-ld-syntax 0.21.1",
- "json-syntax 0.12.5",
- "langtag 0.4.0",
+ "iref",
+ "json-ld-context-processing",
+ "json-ld-core",
+ "json-ld-syntax",
+ "json-syntax",
+ "langtag",
  "mown",
- "rdf-types 0.22.4",
+ "rdf-types",
  "thiserror",
 ]
 
@@ -2238,34 +2099,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fe6e8a89c6aff8c955a6b9128be4da54f1d64b9564bcd647995610c657e2a4e"
 dependencies = [
  "indexmap 2.5.0",
- "iref 3.2.2",
- "json-ld-core 0.21.1",
- "json-syntax 0.12.5",
+ "iref",
+ "json-ld-core",
+ "json-syntax",
  "linked-data",
- "rdf-types 0.22.4",
+ "rdf-types",
  "thiserror",
  "xsd-types",
-]
-
-[[package]]
-name = "json-ld-syntax"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66b08d81018338bcf3e9ed4d4604c31c8c3a07e688dc8abfa424e63c5aba5d4c"
-dependencies = [
- "contextual",
- "decoded-char",
- "derivative",
- "hashbrown 0.13.2",
- "indexmap 1.9.3",
- "iref 2.2.3",
- "json-syntax 0.9.6",
- "langtag 0.3.4",
- "locspan 0.7.16",
- "locspan-derive",
- "rdf-types 0.15.4",
- "smallvec",
- "thiserror",
 ]
 
 [[package]]
@@ -2279,11 +2119,11 @@ dependencies = [
  "educe 0.4.23",
  "hashbrown 0.13.2",
  "indexmap 2.5.0",
- "iref 3.2.2",
- "json-syntax 0.12.5",
- "langtag 0.4.0",
- "locspan 0.8.2",
- "rdf-types 0.22.4",
+ "iref",
+ "json-syntax",
+ "langtag",
+ "locspan",
+ "rdf-types",
  "smallvec",
  "thiserror",
 ]
@@ -2301,24 +2141,6 @@ dependencies = [
 
 [[package]]
 name = "json-syntax"
-version = "0.9.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f2f4557e0fe320cc102bdebf9fa9471b8513e13bb34b5fc23d7e270c5f9b1cc"
-dependencies = [
- "contextual",
- "decoded-char",
- "hashbrown 0.12.3",
- "indexmap 1.9.3",
- "json-number",
- "locspan 0.7.16",
- "locspan-derive",
- "ryu-js",
- "smallstr",
- "smallvec",
-]
-
-[[package]]
-name = "json-syntax"
 version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "044a68aba3f96d712f492b72be25e10f96201eaaca3207a7d6e68d6d5105fda9"
@@ -2328,7 +2150,7 @@ dependencies = [
  "hashbrown 0.12.3",
  "indexmap 1.9.3",
  "json-number",
- "locspan 0.8.2",
+ "locspan",
  "locspan-derive",
  "ryu-js",
  "smallstr",
@@ -2364,12 +2186,6 @@ dependencies = [
  "serde_with 1.14.0",
  "zeroize",
 ]
-
-[[package]]
-name = "langtag"
-version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed60c85f254d6ae8450cec15eedd921efbc4d1bdf6fcf6202b9a58b403f6f805"
 
 [[package]]
 name = "langtag"
@@ -2518,12 +2334,12 @@ checksum = "04fd672ff31f4a6007acbdd33e1b65e1144081ec09b4189b3d20da3997603e90"
 dependencies = [
  "educe 0.4.23",
  "im",
- "iref 3.2.2",
- "json-syntax 0.12.5",
+ "iref",
+ "json-syntax",
  "linked-data-derive",
- "rdf-types 0.22.4",
+ "rdf-types",
  "serde",
- "static-iref 3.0.0",
+ "static-iref",
  "thiserror",
  "xsd-types",
 ]
@@ -2534,11 +2350,11 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "887a1903665b47c2dcff59682d8de1be46813819ae0337d8eaa885035762fbee"
 dependencies = [
- "iref 3.2.2",
+ "iref",
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "static-iref 3.0.0",
+ "static-iref",
  "syn 2.0.82",
  "thiserror",
 ]
@@ -2557,16 +2373,6 @@ checksum = "07af8b9cdd281b7915f413fa73f29ebd5d55d0d3f0155584dade1ff18cea1b17"
 dependencies = [
  "autocfg",
  "scopeguard",
-]
-
-[[package]]
-name = "locspan"
-version = "0.7.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6eb541fabac50f90782ec4fafa7b0b3961adc0d1862c7c7a863dc94ed5541d73"
-dependencies = [
- "contextual",
- "hashbrown 0.13.2",
 ]
 
 [[package]]
@@ -2715,12 +2521,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e7627d8bbeb17edbf1c3f74b21488e4af680040da89713b4217d0010e9cbd97e"
 
 [[package]]
-name = "mownstr"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8bc45ce96192b5d8b20cffb10ccd85cc431c283a7d171a0d843ac0bd7d444598"
-
-[[package]]
 name = "multer"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2776,17 +2576,15 @@ dependencies = [
  "ark-ec",
  "ark-serialize",
  "ark-std",
- "base64 0.22.1",
+ "base64",
  "bbs_plus",
  "blake2",
  "chrono",
  "dock_crypto_utils",
  "fips204",
- "iref 3.2.2",
- "json-ld 0.21.1",
- "json-ld-serialization",
+ "iref",
+ "json-ld",
  "legogroth16",
- "linked-data",
  "multibase",
  "num-bigint",
  "oxigraph",
@@ -2797,16 +2595,14 @@ dependencies = [
  "rand",
  "rdf-canon",
  "rdf-proofs",
- "rdf-types 0.22.4",
+ "rdf-types",
  "regex",
  "rocket",
  "schnorr_pok",
  "serde",
  "serde_json",
- "sophia",
- "static-iref 3.0.0",
+ "static-iref",
  "tokio",
- "unsigned-varint",
 ]
 
 [[package]]
@@ -3183,15 +2979,6 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
-
-[[package]]
-name = "pct-str"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77d207ec8d182c2fef45f028b9b9507770df19e89b3e14827ccd95d4a23f6003"
-dependencies = [
- "utf8-decode",
-]
 
 [[package]]
 name = "pct-str"
@@ -3581,21 +3368,6 @@ dependencies = [
 
 [[package]]
 name = "rdf-types"
-version = "0.15.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d937485610ef88fde97044e8613bdbe8f585f75ab7a665f0d37b9a283621a0c8"
-dependencies = [
- "contextual",
- "indexmap 1.9.3",
- "iref 2.2.3",
- "langtag 0.3.4",
- "locspan 0.7.16",
- "locspan-derive",
- "thiserror",
-]
-
-[[package]]
-name = "rdf-types"
 version = "0.22.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b8d685353ee1b343c708b6be7751d98a7df8e1d0caaeee67c754318854c01d5"
@@ -3603,12 +3375,12 @@ dependencies = [
  "contextual",
  "educe 0.5.11",
  "indexmap 2.5.0",
- "iref 3.2.2",
- "langtag 0.4.0",
+ "iref",
+ "langtag",
  "raw-btree",
  "replace_with",
  "slab",
- "static-iref 3.0.0",
+ "static-iref",
  "thiserror",
 ]
 
@@ -3726,51 +3498,11 @@ checksum = "e3a8614ee435691de62bcffcf4a66d91b3594bf1428a5722e79103249a095690"
 
 [[package]]
 name = "reqwest"
-version = "0.11.27"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd67538700a17451e7cba03ac727fb961abb7607553461627b97de0b89cf4a62"
-dependencies = [
- "base64 0.21.7",
- "bytes",
- "encoding_rs",
- "futures-core",
- "futures-util",
- "h2 0.3.26",
- "http 0.2.12",
- "http-body 0.4.6",
- "hyper 0.14.30",
- "hyper-tls 0.5.0",
- "ipnet",
- "js-sys",
- "log",
- "mime",
- "native-tls",
- "once_cell",
- "percent-encoding",
- "pin-project-lite",
- "rustls-pemfile 1.0.4",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "sync_wrapper 0.1.2",
- "system-configuration 0.5.1",
- "tokio",
- "tokio-native-tls",
- "tower-service",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "winreg",
-]
-
-[[package]]
-name = "reqwest"
 version = "0.12.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8f4955649ef5c38cc7f9e8aa41761d48fb9677197daea9984dc54f56aad5e63"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "bytes",
  "encoding_rs",
  "futures-core",
@@ -3781,7 +3513,7 @@ dependencies = [
  "http-body-util",
  "hyper 1.5.0",
  "hyper-rustls",
- "hyper-tls 0.6.0",
+ "hyper-tls",
  "hyper-util",
  "ipnet",
  "js-sys",
@@ -3791,12 +3523,12 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
- "rustls-pemfile 2.1.3",
+ "rustls-pemfile",
  "serde",
  "serde_json",
  "serde_urlencoded",
- "sync_wrapper 1.0.1",
- "system-configuration 0.6.1",
+ "sync_wrapper",
+ "system-configuration",
  "tokio",
  "tokio-native-tls",
  "tower-service",
@@ -3816,17 +3548,11 @@ dependencies = [
  "anyhow",
  "async-trait",
  "http 1.1.0",
- "reqwest 0.12.7",
+ "reqwest",
  "serde",
  "thiserror",
  "tower-service",
 ]
-
-[[package]]
-name = "resiter"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbc95d56eb1865f69288945759cc0879d60ee68168dce676730275804ad2b276"
 
 [[package]]
 name = "ring"
@@ -4043,20 +3769,11 @@ dependencies = [
 
 [[package]]
 name = "rustls-pemfile"
-version = "1.0.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c74cae0a4cf6ccbbf5f359f08efdf8ee7e1dc532573bf0db71968cb56b1448c"
-dependencies = [
- "base64 0.21.7",
-]
-
-[[package]]
-name = "rustls-pemfile"
 version = "2.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "196fe16b00e106300d3e45ecfcb764fa292a535d7326a29a5875c579c7417425"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "rustls-pki-types",
 ]
 
@@ -4298,7 +4015,7 @@ version = "3.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e28bdad6db2b8340e449f7108f020b3b092e8583a9e3fb82713e1d4e71fe817"
 dependencies = [
- "base64 0.22.1",
+ "base64",
  "chrono",
  "hex",
  "indexmap 1.9.3",
@@ -4491,153 +4208,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sophia"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d9d3e79754eeda3fc7e3610afcc492613fa0a5581d286d7545094e3e7ce1608"
-dependencies = [
- "sophia_api",
- "sophia_c14n",
- "sophia_inmem",
- "sophia_iri",
- "sophia_isomorphism",
- "sophia_jsonld",
- "sophia_resource",
- "sophia_rio",
- "sophia_term",
- "sophia_turtle",
-]
-
-[[package]]
-name = "sophia_api"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e41b1197b9dbd2e5e2a7d8dc62fd6bab001724576463831920b13567bde2a4c"
-dependencies = [
- "lazy_static",
- "mownstr",
- "regex",
- "resiter",
- "serde",
- "sophia_iri",
- "thiserror",
-]
-
-[[package]]
-name = "sophia_c14n"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04e4ebf65104879fc9f3f1f54224b42ad1f9e40b6a5dc26c5a17bf43846d6a1d"
-dependencies = [
- "sha2",
- "sophia_api",
- "sophia_iri",
- "thiserror",
-]
-
-[[package]]
-name = "sophia_inmem"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba3f836b898bbd5d5a73a977995e1d5dab8e2cf96a017890954864ece18b1e8c"
-dependencies = [
- "sophia_api",
- "thiserror",
-]
-
-[[package]]
-name = "sophia_iri"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb62d2fcd10fc3a44b646b1893ad478df0cb771f7ceb0331a5f3cee25f37ba7e"
-dependencies = [
- "lazy_static",
- "oxiri",
- "regex",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "sophia_isomorphism"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2b3876c71756d3dd94590c51090a036298a983f6b1e5c316f9eca514b2f6a5e"
-dependencies = [
- "sophia_api",
- "sophia_iri",
-]
-
-[[package]]
-name = "sophia_jsonld"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b88ade87b1eeedb0a8b571ca5a5d638c1840a1a188aefa0da8e36e384226d04e"
-dependencies = [
- "iref 2.2.3",
- "json-ld 0.15.1",
- "json-syntax 0.9.6",
- "langtag 0.3.4",
- "locspan 0.7.16",
- "rdf-types 0.15.4",
- "sophia_api",
- "sophia_iri",
- "sophia_term",
- "thiserror",
- "tokio",
-]
-
-[[package]]
-name = "sophia_resource"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "807253d3a4144e1f3eacf6976849dab04cbd493ff568414df07c33fd10886ce2"
-dependencies = [
- "futures-util",
- "sophia_api",
- "sophia_iri",
- "sophia_jsonld",
- "sophia_turtle",
- "thiserror",
-]
-
-[[package]]
-name = "sophia_rio"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93e107086ca2b3e329dbe0f85f9ce504b1fbb478c85341338942b9dff613d4d8"
-dependencies = [
- "rio_api",
- "sophia_api",
- "sophia_iri",
-]
-
-[[package]]
-name = "sophia_term"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ca3a77f8523038dc1204a59dd461f27322cbe14bea3da873d41b6cc40c3e63e9"
-dependencies = [
- "lazy_static",
- "sophia_api",
-]
-
-[[package]]
-name = "sophia_turtle"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a7b7ce7aeb34f55867599544622420b2a6b6488b16811e06fd3755fc9cae4d0"
-dependencies = [
- "lazy_static",
- "oxiri",
- "regex",
- "rio_turtle",
- "sophia_api",
- "sophia_iri",
- "sophia_rio",
-]
-
-[[package]]
 name = "sparesults"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4693,20 +4263,11 @@ dependencies = [
 
 [[package]]
 name = "static-iref"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9786d4b8e9e5423fe85c57a826d7e0f0774746149a2ccd21e2104ff74b71ce7"
-dependencies = [
- "iref 2.2.3",
-]
-
-[[package]]
-name = "static-iref"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3cc4068497ae43896d41174586dcdc2153a1af2c82856fb308bfaaddc28e5549"
 dependencies = [
- "iref 3.2.2",
+ "iref",
  "quote",
  "syn 2.0.82",
 ]
@@ -4779,28 +4340,11 @@ dependencies = [
 
 [[package]]
 name = "sync_wrapper"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2047c6ded9c721764247e62cd3b03c09ffc529b2ba5b10ec482ae507a4a70160"
-
-[[package]]
-name = "sync_wrapper"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7065abeca94b6a8a577f9bd45aa0867a2238b74e8eb67cf10d492bc39351394"
 dependencies = [
  "futures-core",
-]
-
-[[package]]
-name = "system-configuration"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba3a3adc5c275d719af8cb4272ea1c4a6d668a777f37e115f6d11ddbc1c8e0e7"
-dependencies = [
- "bitflags 1.3.2",
- "core-foundation",
- "system-configuration-sys 0.5.0",
 ]
 
 [[package]]
@@ -4811,17 +4355,7 @@ checksum = "3c879d448e9d986b661742763247d3693ed13609438cf3d006f51f5368a5ba6b"
 dependencies = [
  "bitflags 2.6.0",
  "core-foundation",
- "system-configuration-sys 0.6.0",
-]
-
-[[package]]
-name = "system-configuration-sys"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a75fb188eb626b924683e3b95e3a48e63551fcfb51949de2f06a9d91dbee93c9"
-dependencies = [
- "core-foundation-sys",
- "libc",
+ "system-configuration-sys",
 ]
 
 [[package]]
@@ -5647,15 +5181,6 @@ dependencies = [
 
 [[package]]
 name = "windows-sys"
-version = "0.48.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "677d2418bec65e3338edb076e806bc1ec15693c5d0104683f2efe857f61056a9"
-dependencies = [
- "windows-targets 0.48.5",
-]
-
-[[package]]
-name = "windows-sys"
 version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "282be5f36a8ce781fad8c8ae18fa3f9beff57ec1b52cb3de0789201425d9a33d"
@@ -5833,16 +5358,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "winreg"
-version = "0.50.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
-dependencies = [
- "cfg-if",
- "windows-sys 0.48.0",
-]
-
-[[package]]
 name = "wyz"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5858,7 +5373,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5bf1ac247150da9bff673820d7dcc22bca6ab621b4ee4f76650b581aff47580"
 dependencies = [
  "chrono",
- "iref 3.2.2",
+ "iref",
  "lazy_static",
  "num-bigint",
  "num-rational",
@@ -5866,7 +5381,7 @@ dependencies = [
  "once_cell",
  "ordered-float",
  "pretty_dtoa",
- "static-iref 3.0.0",
+ "static-iref",
  "static-regular-grammar",
  "thiserror",
 ]

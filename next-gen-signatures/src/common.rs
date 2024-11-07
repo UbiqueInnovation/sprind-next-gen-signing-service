@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
 use anyhow::Result;
-use rocket::form::{self, DataField, FromForm, ValueField};
 
 pub type ByteArray = Vec<u8>;
 
@@ -34,6 +33,10 @@ impl Display for NoArguments {
     }
 }
 
+#[cfg(feature = "rocket")]
+use rocket::form::{self, DataField, FromForm, ValueField};
+
+#[cfg(feature = "rocket")]
 #[rocket::async_trait]
 impl<'r> FromForm<'r> for NoArguments {
     type Context = ();

@@ -16,7 +16,6 @@ use blake2::Blake2b512;
 use dock_crypto_utils::signature::MessageOrBlinding;
 use num_bigint::BigUint;
 use rand::RngCore;
-use rocket::FromForm;
 use schnorr_pok::compute_random_oracle_challenge;
 
 pub type Digest = Blake2b512;
@@ -25,13 +24,30 @@ fn get_rng() -> impl RngCore {
     rand::rngs::OsRng
 }
 
+#[cfg(feature = "rocket")]
+use rocket::FromForm;
+
+#[cfg(feature = "rocket")]
 #[derive(FromForm)]
 pub struct GenParams {
     pub nonce: String,
     pub message_count: u32,
 }
 
+#[cfg(not(feature = "rocket"))]
+pub struct GenParams {
+    pub nonce: String,
+    pub message_count: u32,
+}
+
+#[cfg(feature = "rocket")]
 #[derive(FromForm)]
+pub struct SignParams {
+    pub nonce: String,
+    pub messages: Vec<String>,
+}
+
+#[cfg(not(feature = "rocket"))]
 pub struct SignParams {
     pub nonce: String,
     pub messages: Vec<String>,
