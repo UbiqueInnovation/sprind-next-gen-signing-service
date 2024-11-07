@@ -59,3 +59,4 @@ oxigraph = "0.3.22"
 json-ld-serialization = "0.21.1"
 linked-data = "0.1.2"
 serde = { version = "1.0.214", features = ["derive"] }
+chrono = "0.4.38"

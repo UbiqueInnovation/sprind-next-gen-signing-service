@@ -1,4 +1,7 @@
-use std::{collections::HashMap, fmt::Write};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Write,
+};
 
 use json_ld::{syntax::Parse as _, JsonLdProcessor as _, RemoteDocument, ReqwestLoader};
 use oxrdf::{Graph, GraphName, NamedNode, Quad, Subject, Term, Triple};
@@ -45,6 +48,28 @@ impl RdfQuery {
 
     pub fn is_empty(&self) -> bool {
         self.quads.is_empty()
+    }
+
+    pub fn ids(&self) -> Vec<String> {
+        self.quads
+            .iter()
+            .filter_map(|q| match &q.subject {
+                Subject::NamedNode(n) => Some(n.clone().into_string()),
+                _ => None,
+            })
+            .collect::<HashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>()
+    }
+
+    pub fn get(&self, subject: Option<Subject>, predicate: NamedNode) -> Option<Term> {
+        self.quads
+            .iter()
+            .find(|q| {
+                subject.as_ref().map(|s| &q.subject == s).unwrap_or(true)
+                    && q.predicate == predicate
+            })
+            .map(|t| t.object.clone())
     }
 
     pub fn entries(&self) -> HashMap<String, Term> {
@@ -119,7 +144,7 @@ impl RdfQuery {
             }
         };
 
-        let entries = self
+        let mut entries = self
             .entries()
             .into_iter()
             .map(|(k, v)| {
@@ -169,6 +194,13 @@ impl RdfQuery {
                 }
             })
             .collect::<HashMap<_, _>>();
+
+        let ids = self.ids();
+        if let Some(id) = ids.first() {
+            if ids.len() < 2 {
+                entries.insert("id".to_string(), json!(id));
+            }
+        }
 
         json!(entries)
     }
