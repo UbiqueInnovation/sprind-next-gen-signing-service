@@ -1,9 +1,10 @@
 [package]
 name = "next-gen-signatures"
-version = "0.0.4"
+version = "0.1.0"
 edition = "2021"
 
 [features]
+rocket = ["dep:rocket"]
 all-algos = ["fips204", "bbs"]
 fips204 = ["dep:fips204"]
 bbs = [
@@ -17,13 +18,32 @@ bbs = [
     "dep:num-bigint",
     "dep:rand",
     "dep:schnorr_pok",
+    "dep:proof_system",
+    "dep:json-ld",
+    "dep:rdf-types",
+    "dep:static-iref",
+    "dep:iref",
+    "dep:oxigraph",
+    "dep:oxrdf",
+    "dep:oxttl",
+    "dep:rdf-proofs",
+    "dep:legogroth16",
+    "dep:multibase",
+    "dep:serde_json",
+    "dep:serde",
+    "dep:itertools",
+
+    "dep:regex",
+    "dep:tokio",
+    "dep:rdf-canon",
+    "dep:chrono",
 ]
 
 [dependencies]
 anyhow = "1.0.89"
 base64 = "0.22.1"
 paste = "1.0.15"
-rocket = "0.5.1"
+rocket = { version = "0.5.1", optional = true }
 
 # FIPS204
 fips204 = { version = "0.2.2", optional = true }
@@ -39,3 +59,25 @@ dock_crypto_utils = { version = "0.20.0", optional = true }
 num-bigint = { version = "0.4.6", optional = true }
 rand = { version = "0.8.5", optional = true }
 schnorr_pok = { version = "0.20.0", optional = true }
+proof_system = { version = "0.31.0", optional = true }
+json-ld = { version = "0.21.1", features = ["reqwest"], optional = true }
+rdf-types = { version = "0.22.4", optional = true }
+static-iref = { version = "3.0.0", optional = true }
+iref = { version = "3.2.2", optional = true }
+oxigraph = { git = "https://github.com/UbiqueInnovation/oxigraph-v0.3.22-patch.git", optional = true }
+oxrdf = { version = "0.2.1", optional = true }
+oxttl = { version = "0.1.1", optional = true }
+rdf-proofs = { version = "0.10.0", optional = true }
+legogroth16 = { version = "0.15.0", optional = true }
+multibase = { version = "0.9.1", optional = true }
+serde_json = { version = "1.0.132", optional = true }
+serde = { version = "1.0.214", features = ["derive"], optional = true }
+# BBS+ tests
+regex = { version = "1.11.0", optional = true }
+tokio = { version = "1.40.0", optional = true }
+rdf-canon = { version = "0.15.0", optional = true }
+chrono = { version = "0.4.38", optional = true }
+itertools = { version = "0.13.0", optional = true }
+
+[target.'cfg(any(target_os = "android"))'.dependencies]
+openssl = { version = "0.10", features = ["vendored"] }

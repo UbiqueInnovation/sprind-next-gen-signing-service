@@ -9,3 +9,8 @@ pub use bbs::{BbsPlusG1Provider, BbsPlusG2Provider};
 
 #[cfg(feature = "bbs")]
 pub mod bbs;
+
+#[cfg(feature = "bbs")]
+pub mod zkp;
+
+pub mod common;
