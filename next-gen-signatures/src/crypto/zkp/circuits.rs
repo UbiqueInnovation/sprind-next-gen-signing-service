@@ -29,24 +29,21 @@ pub fn generate_circuits<R: RngCore>(rng: &mut R, reqs: &Vec<ProofRequirement>) 
     let mut proving_keys = HashMap::<String, String>::new();
 
     for req in reqs {
-        match req {
-            ProofRequirement::Circuit { id, .. } => {
-                let (r1cs, _) = lookup.get(id).unwrap();
-                let r1cs: R1CS = R1CSFile::new(Cursor::new(r1cs)).unwrap().into();
+        if let ProofRequirement::Circuit { id, .. } = req {
+            let (r1cs, _) = lookup.get(id).unwrap();
+            let r1cs: R1CS = R1CSFile::new(Cursor::new(r1cs)).unwrap().into();
 
-                let commit_witness_count = 1;
-                let snark_proving_key = CircomCircuit::setup(r1cs)
-                    .generate_proving_key(commit_witness_count, rng)
-                    .unwrap();
+            let commit_witness_count = 1;
+            let snark_proving_key = CircomCircuit::setup(r1cs)
+                .generate_proving_key(commit_witness_count, rng)
+                .unwrap();
 
-                // serialize to multibase
-                let snark_proving_key_string = ark_to_base64url(&snark_proving_key).unwrap();
-                let snark_verifying_key_string = ark_to_base64url(&snark_proving_key.vk).unwrap();
+            // serialize to multibase
+            let snark_proving_key_string = ark_to_base64url(&snark_proving_key).unwrap();
+            let snark_verifying_key_string = ark_to_base64url(&snark_proving_key.vk).unwrap();
 
-                verifying_keys.insert(id.clone(), snark_verifying_key_string);
-                proving_keys.insert(id.clone(), snark_proving_key_string);
-            }
-            _ => (),
+            verifying_keys.insert(id.clone(), snark_verifying_key_string);
+            proving_keys.insert(id.clone(), snark_proving_key_string);
         }
     }
 

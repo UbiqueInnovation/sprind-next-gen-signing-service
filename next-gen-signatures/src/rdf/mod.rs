@@ -140,11 +140,9 @@ impl RdfQuery {
             .find_map(|q| (q.predicate == predicate).then_some(q.object.clone()))?;
 
         Some(match object {
-            Term::Literal(lit) => RdfValue::Value(format!(
-                "\"{}\"^^{}",
-                lit.value().to_string(),
-                lit.datatype().to_string()
-            )),
+            Term::Literal(lit) => {
+                RdfValue::Value(format!("\"{}\"^^{}", lit.value(), lit.datatype()))
+            }
             Term::BlankNode(node) => {
                 let graph = self.get_graph_by_subjects(vec![Subject::BlankNode(node.clone())]);
                 if graph.is_empty() {
