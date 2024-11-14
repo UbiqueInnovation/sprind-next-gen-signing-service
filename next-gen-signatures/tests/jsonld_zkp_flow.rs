@@ -594,7 +594,7 @@ pub async fn verify(
 }
 
 #[tokio::test]
-pub async fn zkp() {
+pub async fn jsonld_zkp_flow() {
     let vc = issue(get_sample_data()).await;
 
     let reqs = vec![
