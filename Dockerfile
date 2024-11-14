@@ -1,5 +1,9 @@
-FROM rust:1.81.0-alpine AS builder
-RUN apk add --no-cache musl-dev
+FROM rust:1.77.2-slim-bookworm AS builder
+RUN apt-get update && apt-get install -y \
+    libssl-dev \
+    build-essential \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -15,7 +19,12 @@ RUN cargo build --release
 
 
 
-FROM alpine AS runtime
+FROM debian:bookworm-slim AS runtime
+
+RUN apt-get update && apt-get install -y \
+    libssl3 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
