@@ -5,9 +5,19 @@ use anyhow::Result;
 pub type ByteArray = Vec<u8>;
 
 pub trait CryptoProvider {
+    #[cfg(feature = "rocket")]
     type GenParams: for<'a> FromForm<'a> + TestDefault;
+    #[cfg(feature = "rocket")]
     type SignParams: for<'a> FromForm<'a> + TestDefault;
+    #[cfg(feature = "rocket")]
     type VerifyParams: for<'a> FromForm<'a> + TestDefault;
+
+    #[cfg(not(feature = "rocket"))]
+    type GenParams: TestDefault;
+    #[cfg(not(feature = "rocket"))]
+    type SignParams: TestDefault;
+    #[cfg(not(feature = "rocket"))]
+    type VerifyParams: TestDefault;
 
     type PublicKey;
     type SecretKey;

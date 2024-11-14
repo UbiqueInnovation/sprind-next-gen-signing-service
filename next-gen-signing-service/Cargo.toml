@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 next-gen-signatures = { path = "../next-gen-signatures", features = [
     "all-algos",
+    "rocket",
 ] }
 paste = "1.0.15"
 rocket = { version = "0.5.1", features = ["json"] }

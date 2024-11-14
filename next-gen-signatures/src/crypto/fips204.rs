@@ -1,10 +1,18 @@
 use base64::Engine;
 use fips204::traits::{SerDes, Signer, Verifier};
+
+#[cfg(feature = "rocket")]
 use rocket::FromForm;
 
 use crate::common::{CryptoProvider, NoArguments, TestDefault};
 
+#[cfg(feature = "rocket")]
 #[derive(FromForm)]
+pub struct SignParams {
+    message: String,
+}
+
+#[cfg(not(feature = "rocket"))]
 pub struct SignParams {
     message: String,
 }
