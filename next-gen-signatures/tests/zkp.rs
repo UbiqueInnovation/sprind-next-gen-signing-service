@@ -2,6 +2,7 @@ use std::{collections::HashMap, io::Cursor, time::SystemTime};
 
 use ark_bls12_381::Bls12_381;
 use chrono::{DateTime, Months, Utc};
+use itertools::Itertools;
 use legogroth16::circom::{r1cs::R1CSFile, CircomCircuit, R1CS as R1CSOrig};
 use multibase::Base;
 use next_gen_signatures::rdf::RdfQuery;
@@ -347,7 +348,6 @@ pub async fn present(
                 public_val,
                 ..
             } => {
-                let blank = gen.next_blank_id().to_string();
                 let value = rdf_body
                     .get_value(NamedNode::new_unchecked(key), None)
                     .unwrap()
@@ -355,6 +355,11 @@ pub async fn present(
                     .unwrap();
 
                 let public_val = serde_json::to_value(public_val).unwrap();
+
+                let blank = deanon_map
+                    .iter()
+                    .find_map(|(k, v)| (v == &value).then_some(k.clone()))
+                    .unwrap_or_else(|| gen.next_blank_id().to_string());
 
                 deanon_map.insert(blank.clone(), value);
 
@@ -469,27 +474,103 @@ pub async fn verify(
 
     assert!(success.is_ok(), "{success:#?}");
 
-    println!("{}", pres.graph.to_rdf_string());
-
-    let test = pres.graph.to_json(
-        None,
-        Some(vec![Term::NamedNode(NamedNode::new_unchecked(
-            "https://zkp-ld.org/security#Predicate",
-        ))]),
-        None,
-    );
-
     let json = pres.graph.to_json(None, None, None)
         ["https://www.w3.org/2018/credentials#verifiableCredential"]
         .clone();
 
-    println!("{json}");
-
     let subject = json["https://www.w3.org/2018/credentials#credentialSubject"].clone();
 
-    // TODO: verify requested keys exist
+    for req in reqs {
+        match req {
+            ProofRequirement::Required { key } => {
+                assert!(subject.get(key).is_some());
+            }
+            ProofRequirement::Circuit {
+                id,
+                private_key,
+                private_var,
+                public_val,
+                public_var,
+            } => {
+                let blank_id = subject
+                    .get(private_key)
+                    .unwrap()
+                    .get("@id")
+                    .unwrap()
+                    .as_str()
+                    .unwrap();
 
-    println!("{test:#}");
+                let predicate = NamedNode::new_unchecked("https://zkp-ld.org/security#predicate");
+
+                let graphs = pres
+                    .graph
+                    .quads
+                    .iter()
+                    .filter_map(|q| (q.predicate == predicate).then_some(q.object.clone()))
+                    .dedup()
+                    .filter_map(|s| match s {
+                        Term::Literal(_) => None,
+                        Term::BlankNode(node) => Some(
+                            pres.graph
+                                .get_graph_by_name(GraphName::BlankNode(node))
+                                .to_json(None, None, None),
+                        ),
+                        Term::NamedNode(node) => Some(
+                            pres.graph
+                                .get_graph_by_name(GraphName::NamedNode(node))
+                                .to_json(None, None, None),
+                        ),
+                    })
+                    .find(|json| {
+                        let x = || {
+                            let public = json
+                                .get("https://zkp-ld.org/security#public")?
+                                .get("http://www.w3.org/1999/02/22-rdf-syntax-ns#first")?;
+                            let pub_val = public
+                                .get("https://zkp-ld.org/security#val")?
+                                .get("@value")?;
+                            let pub_type = public
+                                .get("https://zkp-ld.org/security#val")?
+                                .get("@type")?;
+                            let pub_var = public
+                                .get("https://zkp-ld.org/security#var")?
+                                .get("@value")?;
+
+                            let priv_var = json
+                                .get("https://zkp-ld.org/security#private")?
+                                .get("http://www.w3.org/1999/02/22-rdf-syntax-ns#first")?
+                                .get("https://zkp-ld.org/security#var")?
+                                .get("@value")?;
+
+                            let circuit_id = json
+                                .get("https://zkp-ld.org/security#circuit")?
+                                .get("@id")?;
+
+                            Some(
+                                pub_val == &public_val.value
+                                    && pub_type == &public_val.r#type
+                                    && pub_var == public_var
+                                    && priv_var == private_var
+                                    && circuit_id == id,
+                            )
+                        };
+
+                        x().unwrap_or(false)
+                    })
+                    .unwrap();
+
+                assert!(
+                    graphs
+                        .get("https://zkp-ld.org/security#private")
+                        .and_then(|j| j.get("http://www.w3.org/1999/02/22-rdf-syntax-ns#first"))
+                        .and_then(|j| j.get("https://zkp-ld.org/security#val"))
+                        .and_then(|j| j.get("@id"))
+                        .unwrap()
+                        == blank_id
+                );
+            }
+        }
+    }
 
     subject
 }

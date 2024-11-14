@@ -13,7 +13,7 @@ const TYPE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 
 #[derive(Debug, Clone)]
 pub struct RdfQuery {
-    quads: Vec<Quad>,
+    pub quads: Vec<Quad>,
 }
 
 #[derive(Debug, Clone)]

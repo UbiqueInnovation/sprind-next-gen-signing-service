@@ -2517,6 +2517,7 @@ dependencies = [
  "dock_crypto_utils",
  "fips204",
  "iref",
+ "itertools 0.13.0",
  "json-ld",
  "jsonpath-rust",
  "legogroth16",
