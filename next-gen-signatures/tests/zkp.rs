@@ -37,7 +37,7 @@ impl Presentation {
 
 pub struct Circuits {
     verifying_keys: HashMap<String, String>,
-    circuits: HashMap<String, CircuitString>,
+    proving_keys: HashMap<String, String>,
 }
 
 impl Credential {
@@ -141,16 +141,13 @@ pub fn generate_circuits(reqs: &Vec<ProofRequirement>) -> Circuits {
     let lookup = get_circuit_defs();
 
     let mut verifying_keys = HashMap::<String, String>::new();
-    let mut circuits = HashMap::<String, CircuitString>::new();
+    let mut proving_keys = HashMap::<String, String>::new();
 
     for req in reqs {
         match req {
             ProofRequirement::Circuit { id, .. } => {
-                let (r1cs, wasm) = lookup.get(id).unwrap();
+                let (r1cs, _) = lookup.get(id).unwrap();
                 let r1cs: R1CS = R1CSFile::new(Cursor::new(r1cs)).unwrap().into();
-                let wasm = multibase::encode(Base::Base64Url, wasm);
-
-                let r1cs_string = ark_to_base64url(&r1cs).unwrap();
 
                 let commit_witness_count = 1;
                 let snark_proving_key = CircomCircuit::setup(r1cs)
@@ -161,14 +158,8 @@ pub fn generate_circuits(reqs: &Vec<ProofRequirement>) -> Circuits {
                 let snark_proving_key_string = ark_to_base64url(&snark_proving_key).unwrap();
                 let snark_verifying_key_string = ark_to_base64url(&snark_proving_key.vk).unwrap();
 
-                let circuit = CircuitString {
-                    circuit_r1cs: r1cs_string,
-                    circuit_wasm: wasm,
-                    snark_proving_key: snark_proving_key_string,
-                };
-
                 verifying_keys.insert(id.clone(), snark_verifying_key_string);
-                circuits.insert(id.clone(), circuit);
+                proving_keys.insert(id.clone(), snark_proving_key_string);
             }
             _ => (),
         }
@@ -176,8 +167,33 @@ pub fn generate_circuits(reqs: &Vec<ProofRequirement>) -> Circuits {
 
     Circuits {
         verifying_keys,
-        circuits,
+        proving_keys,
     }
+}
+
+pub fn load_circuits(keys: &HashMap<String, String>) -> HashMap<String, CircuitString> {
+    type R1CS = R1CSOrig<Bls12_381>;
+
+    let lookup = get_circuit_defs();
+    let mut circuits = HashMap::<String, CircuitString>::new();
+
+    for (id, key) in keys {
+        let (r1cs, wasm) = lookup.get(id).unwrap();
+        let r1cs: R1CS = R1CSFile::new(Cursor::new(r1cs)).unwrap().into();
+
+        let wasm = multibase::encode(Base::Base64Url, wasm);
+        let r1cs = ark_to_base64url(&r1cs).unwrap();
+
+        let circuit = CircuitString {
+            circuit_r1cs: r1cs,
+            circuit_wasm: wasm,
+            snark_proving_key: key.clone(),
+        };
+
+        circuits.insert(id.clone(), circuit);
+    }
+
+    circuits
 }
 
 pub fn get_proof_cfg() -> JsonValue {
@@ -283,10 +299,12 @@ pub async fn issue(data: JsonValue) -> Credential {
 pub async fn present(
     vc: Credential,
     reqs: &Vec<ProofRequirement>,
-    circuits: &HashMap<String, CircuitString>,
+    proving_keys: &HashMap<String, String>,
     issuer_pk: String,
 ) -> Presentation {
     let mut rng = StdRng::seed_from_u64(1337);
+
+    let circuits = load_circuits(proving_keys);
 
     let json = vc.as_json();
 
@@ -425,7 +443,7 @@ pub async fn present(
         None,
         None,
         Some(&predicates),
-        Some(circuits),
+        Some(&circuits),
     )
     .unwrap();
 
@@ -616,7 +634,7 @@ pub async fn zkp() {
     let circuits = generate_circuits(&reqs);
 
     let (issuer_pk, _) = get_issuer();
-    let pres = present(vc, &reqs, &circuits.circuits, issuer_pk.clone()).await;
+    let pres = present(vc, &reqs, &circuits.proving_keys, issuer_pk.clone()).await;
 
     let json = verify(pres, issuer_pk, circuits.verifying_keys, &reqs).await;
 
