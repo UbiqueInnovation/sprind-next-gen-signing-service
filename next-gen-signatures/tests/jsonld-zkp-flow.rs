@@ -7,7 +7,9 @@ use multibase::Base;
 use next_gen_signatures::rdf::RdfQuery;
 use oxrdf::{GraphName, NamedNode, Term};
 use rand::prelude::*;
-use rdf_proofs::{ark_to_base64url, CircuitString, KeyPairBase58Btc, VerifiableCredential};
+use rdf_proofs::{
+    ark_to_base64url, CircuitString, KeyPairBase58Btc, VcPairString, VerifiableCredential,
+};
 use rdf_types::generator;
 use serde_json::json;
 
@@ -36,7 +38,10 @@ async fn json_ld_flow() {
             "@value": "1990-01-01T00:00:00Z",
             "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
         },
-        "http://schema.org/telephone": "(425) 123-4567",
+        "http://schema.org/telephone": {
+            "@value": "(425) 123-4567",
+            "@type": "http://www.w3.org/2001/XMLSchema#string"
+        },
     });
 
     // publicly known issuer data
@@ -44,7 +49,7 @@ async fn json_ld_flow() {
     let issuer_key_id = format!("{issuer_id}#bls12_381-g2-pub001");
 
     // issuance of a verifiable credential
-    let (_issuer_pk, vc) = {
+    let (issuer_pk, vc, proof_cfg) = {
         let issuer_kp = KeyPairBase58Btc::new(&mut rng).unwrap();
         let issuer_pk = issuer_kp.public_key;
 
@@ -73,7 +78,7 @@ async fn json_ld_flow() {
         .unwrap();
 
         // issuance of a verifiable credential
-        let vc = {
+        let (vc, proof_cfg) = {
             let issuer_sk = issuer_kp.secret_key;
 
             let issuer = RdfQuery::from_jsonld(
@@ -156,11 +161,28 @@ async fn json_ld_flow() {
             )
             .expect("Failed to sign vc!");
 
-            vc
+            println!("{}", vc.document.to_string());
+
+            (vc, proof_cfg)
         };
 
-        (issuer, vc)
+        (issuer, vc, proof_cfg)
     };
+
+    /*
+    let vc_json = {
+        let mut tmp = String::new();
+        tmp.push_str(&vc.document.to_string());
+        tmp.push('\n');
+        tmp.push_str(&vc.proof.to_string());
+
+        println!("{tmp}");
+
+        let graph = RdfQuery::new(&tmp).unwrap();
+        graph.to_json(Some(GraphName::DefaultGraph), None, None)
+    };
+    println!("{vc_json:#}");
+    */
 
     // predicates provided by the verifier.
     // circuits maybe provided by the verifier
@@ -171,11 +193,11 @@ async fn json_ld_flow() {
     // verifying_key used later to verify the proof.
     // variable is the placeholder for the variable the
     //   the proof is over.
-    let (_predicates, _circuits, _verifying_key, _variable) = {
+    let (predicate, circuits, _verifying_key, variable) = {
         let verify_date = "2000-01-01T00:00:00Z";
         let verify_var = "to:be:verified";
 
-        let predicates = json!({
+        let predicate = json!({
             "@context": {
                 "circuit": "https://zkp-ld.org/security#circuit",
                 "private": "https://zkp-ld.org/security#private",
@@ -226,7 +248,7 @@ async fn json_ld_flow() {
         let snark_verifying_key_string = ark_to_base64url(&snark_proving_key.vk).unwrap();
 
         let circuits = HashMap::from([(
-            "https://zkp-ld.org/circuit/alexey/lessThanPublic".to_string(),
+            "https://zkp-ld.org/circuit/ubique/lessThanPublic".to_string(),
             CircuitString {
                 circuit_r1cs,
                 circuit_wasm,
@@ -234,22 +256,15 @@ async fn json_ld_flow() {
             },
         )]);
 
-        (predicates, circuits, snark_verifying_key_string, verify_var)
+        (predicate, circuits, snark_verifying_key_string, verify_var)
     };
 
-    let _ = {
+    /*
+    let (predicates, deanon_map, disc_vc) = {
         let mut gen = generator::Blank::new_with_prefix("e".to_string());
         let b_id = gen.next_blank_id().to_string();
         let b_birthdate = gen.next_blank_id().to_string();
         let b_telephone = gen.next_blank_id().to_string();
-
-        let doc = RdfQuery::new(&vc.document.to_string()).unwrap();
-
-        let x = doc.get(
-            None,
-            NamedNode::new("https://www.w3.org/2018/credentials#credentialSubject").unwrap(),
-        );
-        println!("{:#?}", x);
 
         let mut vc_json = RdfQuery::new(&vc.document.to_string()).unwrap().to_json(
             None,
@@ -280,12 +295,55 @@ async fn json_ld_flow() {
         vc_json["https://www.w3.org/2018/credentials#credentialSubject"]
             ["http://schema.org/telephone"] = json!(b_telephone);
 
+        let predicate = RdfQuery::from_jsonld(&predicate.to_string(), None)
+            .await
+            .unwrap()
+            .to_rdf_string()
+            .replace(variable, &b_birthdate);
+
         let deanon_map = HashMap::from([
             (b_id, o_id),
             (b_birthdate, o_birthdate),
             (b_telephone, o_telephone),
         ]);
 
-        println!("{:#?}", deanon_map)
+        let disc_vc = RdfQuery::from_jsonld(&vc_json.to_string(), Some("e".into()))
+            .await
+            .unwrap();
+
+        let predicates = vec![predicate];
+
+        (predicates, deanon_map, disc_vc)
     };
+
+    let _proof = {
+        let vc_pairs = vec![VcPairString::new(
+            &vc.document.to_string(),
+            &vc.proof.to_string(),
+            &disc_vc.to_rdf_string(),
+            &proof_cfg.to_rdf_string(),
+        )];
+
+        println!("{}", disc_vc.to_rdf_string());
+        println!("{}", vc.document.to_string());
+        */
+    /*
+        let proof = rdf_proofs::derive_proof_string(
+            &mut rng,
+            &vc_pairs,
+            &deanon_map,
+            &issuer_pk.to_rdf_string(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(&predicates),
+            Some(&circuits),
+        )
+        .unwrap();
+
+        proof
+    };
+    */
 }

@@ -76,6 +76,7 @@ regex = { version = "1.11.0", optional = true }
 tokio = { version = "1.40.0", optional = true }
 rdf-canon = { version = "0.15.0", optional = true }
 chrono = { version = "0.4.38", optional = true }
+jsonpath-rust = "0.7.3"
 
 [target.'cfg(any(target_os = "android"))'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }

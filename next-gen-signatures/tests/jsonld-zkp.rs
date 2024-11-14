@@ -64,6 +64,10 @@ async fn jsonld_zkp() {
                         "coolString": {
                             "@id": "http://example.org/coolString",
                             "@type": "@id"
+                        },
+                        "coolDate": {
+                            "@id": "http://example.org/coolDate",
+                            "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
                         }
                     }
                 ],
@@ -79,7 +83,12 @@ async fn jsonld_zkp() {
                     "coolString": {
                         "type": "coolString",
                         "@value": "John Doe"
-                    }
+                    },
+                    "coolDate": {
+                        "type": "http://www.w3.org/2001/XMLSchema#dateTime",
+                        "@value": "2024-01-01T00:00:00Z"
+                    },
+                    "coolTel": "(425) 123-4567"
                 }
             }"#,
         Some("b".to_string()),
@@ -107,8 +116,10 @@ async fn jsonld_zkp() {
     let key_graph: KeyGraph = issuer.as_graph(GraphName::DefaultGraph).into();
 
     let mut gen = generator::Blank::new_with_prefix("e".to_string());
-    let blank1 = gen.next_blank_id();
+    // let blank1 = gen.next_blank_id();
     let blank2 = gen.next_blank_id();
+    let blank3 = gen.next_blank_id();
+    // let blank4 = gen.next_blank_id();
 
     let disc_data = RdfQuery::from_jsonld(
         &format!(
@@ -130,6 +141,10 @@ async fn jsonld_zkp() {
                         "coolString": {{
                             "@id": "http://example.org/coolString",
                             "@type": "@id"
+                        }},
+                        "coolDate": {{
+                            "@id": "http://example.org/coolDate",
+                            "@type": "@id"
                         }}
                     }}
                 ],
@@ -139,7 +154,7 @@ async fn jsonld_zkp() {
                 "issuanceDate": "2024-01-01T00:00:00Z",
                 "expirationDate": "2028-01-01T00:00:00Z",
                 "credentialSubject": {{
-                    "@id": "{blank1}",
+                    "id": "did:example:coolstuff",
                     "type": "CoolStuff",
                     "coolNumber": {{
                         "@id": "{blank2}"
@@ -147,7 +162,11 @@ async fn jsonld_zkp() {
                     "coolString": {{
                         "type": "coolString",
                         "@value": "John Doe"
-                    }}
+                    }},
+                    "coolDate": {{
+                        "@id": "{blank3}"
+                    }},
+                    "coolTel": "(425) 123-4567"
                 }}
         }}"#,
         ),
@@ -169,11 +188,20 @@ async fn jsonld_zkp() {
     println!("{disc_vc}");
 
     let deanon_map = HashMap::from([
-        (blank1.to_string(), "<did:example:coolstuff>".to_string()),
         (
             blank2.to_string(),
             "\"1337\"^^<http://www.w3.org/2001/XMLSchema#integer>".to_string(),
         ),
+        (
+            blank3.to_string(),
+            "\"2024-01-01T00:00:00Z\"^^<http://www.w3.org/2001/XMLSchema#dateTime>".to_string(),
+        ),
+        /*
+        (
+            blank4.to_string(),
+            "\"(425) 123-4567\"^^<http://www.w3.org/2001/XMLSchema#string>".to_string(),
+        ),
+        */
     ]);
     println!("{deanon_map:#?}");
 
@@ -231,8 +259,8 @@ async fn jsonld_zkp() {
                     "@type": "https://zkp-ld.org/security#PublicVariable",
                     "var": "b",
                     "val": {
-                        "@value": 9999,
-                        "@type": "http://www.w3.org/2001/XMLSchema#integer"
+                        "@value": "2025-01-01T00:00:00Z",
+                        "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
                     }
                 },
                 "rest": {
@@ -246,7 +274,7 @@ async fn jsonld_zkp() {
     .unwrap()
     .to_rdf_string()
     // NOTE: this is a hack
-    .replace("<to:be:verified>", blank2.as_ref())];
+    .replace("<to:be:verified>", blank3.as_ref())];
 
     println!("{}", predicates[0]);
 
@@ -287,7 +315,7 @@ async fn jsonld_zkp() {
     assert_eq!(
         proof_json["https://www.w3.org/2018/credentials#verifiableCredential"]
             ["https://www.w3.org/2018/credentials#credentialSubject"]
-            ["http://example.org/coolString"],
+            ["http://example.org/coolString"]["@value"],
         "John Doe"
     );
 

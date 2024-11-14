@@ -16,6 +16,28 @@ pub struct RdfQuery {
     quads: Vec<Quad>,
 }
 
+#[derive(Debug, Clone)]
+pub enum RdfValue {
+    Graph(RdfQuery),
+    Value(String),
+}
+
+impl RdfValue {
+    pub fn as_graph(self) -> Result<RdfQuery, Self> {
+        match self {
+            RdfValue::Graph(graph) => Ok(graph),
+            _ => Err(self),
+        }
+    }
+
+    pub fn as_value(self) -> Result<String, Self> {
+        match self {
+            RdfValue::Value(value) => Ok(value),
+            _ => Err(self),
+        }
+    }
+}
+
 impl RdfQuery {
     pub fn new(source: &str) -> anyhow::Result<Self> {
         let quads = NQuadsParser::new()
@@ -109,6 +131,39 @@ impl RdfQuery {
         Self { quads }
     }
 
+    pub fn get_value(&self, predicate: NamedNode, root: Option<&RdfQuery>) -> Option<RdfValue> {
+        let root = root.unwrap_or(self);
+
+        let object = root
+            .quads
+            .iter()
+            .find_map(|q| (q.predicate == predicate).then_some(q.object.clone()))?;
+
+        Some(match object {
+            Term::Literal(lit) => RdfValue::Value(format!(
+                "\"{}\"^^{}",
+                lit.value().to_string(),
+                lit.datatype().to_string()
+            )),
+            Term::BlankNode(node) => {
+                let graph = self.get_graph_by_subjects(vec![Subject::BlankNode(node.clone())]);
+                if graph.is_empty() {
+                    RdfValue::Value(node.to_string())
+                } else {
+                    RdfValue::Graph(graph)
+                }
+            }
+            Term::NamedNode(node) => {
+                let graph = self.get_graph_by_subjects(vec![Subject::NamedNode(node.clone())]);
+                if graph.is_empty() {
+                    RdfValue::Value(node.to_string())
+                } else {
+                    RdfValue::Graph(graph)
+                }
+            }
+        })
+    }
+
     pub fn get_graph_by_types(&self, types: Vec<Term>) -> Self {
         let subjects = self
             .quads
@@ -150,7 +205,7 @@ impl RdfQuery {
             .map(|(k, v)| {
                 if k == "type" {
                     return (
-                        k,
+                        "@type".to_string(),
                         JsonValue::String(resolve_ctx(match v {
                             Term::Literal(lit) => lit.value().to_string(),
                             Term::NamedNode(node) => node.into_string(),
@@ -162,7 +217,13 @@ impl RdfQuery {
                 let k = resolve_ctx(k);
 
                 match v {
-                    Term::Literal(val) => (k, JsonValue::String(val.value().to_string())),
+                    Term::Literal(val) => (
+                        k,
+                        json!({
+                            "@type": val.datatype().as_str(),
+                            "@value": val.value().to_string()
+                        }),
+                    ),
                     Term::BlankNode(node) => {
                         let mut graph =
                             lookup.get_graph_by_name(GraphName::BlankNode(node.clone()));
@@ -172,7 +233,12 @@ impl RdfQuery {
                         }
 
                         if graph.is_empty() {
-                            (k, JsonValue::String(node.to_string()))
+                            (
+                                k,
+                                json!({
+                                    "@id": node.to_string(),
+                                }),
+                            )
                         } else {
                             (k, graph.to_json_impl(lookup, context))
                         }
@@ -186,7 +252,12 @@ impl RdfQuery {
                         }
 
                         if graph.is_empty() {
-                            (k, JsonValue::String(node.into_string()))
+                            (
+                                k,
+                                json!({
+                                    "@id": node.into_string(),
+                                }),
+                            )
                         } else {
                             (k, graph.to_json_impl(lookup, context))
                         }
@@ -198,7 +269,7 @@ impl RdfQuery {
         let ids = self.ids();
         if let Some(id) = ids.first() {
             if ids.len() < 2 {
-                entries.insert("id".to_string(), json!(id));
+                entries.insert("@id".to_string(), json!(id));
             }
         }
 
