@@ -1,6 +1,8 @@
 use std::time::SystemTime;
 
 use chrono::{DateTime, Utc};
+use rand::RngCore;
+use rdf_proofs::KeyPairBase58Btc;
 use serde_json::{json, Value as JsonValue};
 
 pub(super) fn get_proof_cfg(issuer_key_id: &str) -> JsonValue {
@@ -16,4 +18,9 @@ pub(super) fn get_proof_cfg(issuer_key_id: &str) -> JsonValue {
             "verificationMethod": issuer_key_id
         }
     )
+}
+
+pub fn generate_keypair<R: RngCore>(rng: &mut R) -> (String, String) {
+    let kp = KeyPairBase58Btc::new(rng).unwrap();
+    (kp.public_key, kp.secret_key)
 }

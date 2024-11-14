@@ -1,0 +1,92 @@
+{{
+    function base64url_encode(str) {
+        const buffer = new TextEncoder().encode(str);
+        return btoa(Array.from(new Uint8Array(buffer), b => String.fromCharCode(b)).join(''))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/, '');
+    }
+
+    exports.base64url_encode = base64url_encode
+
+    exports.data = base64url_encode(JSON.stringify({
+        "@type": "http://schema.org/Person",
+        "@id": "did:example:johndoe",
+        "http://schema.org/name": "John Doe",
+        "http://schema.org/birthDate": {
+            "@value": "1990-01-01T00:00:00Z",
+            "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+        },
+        "http://schema.org/telephone": "(425) 123-4567",
+    }))
+
+    exports.definition = base64url_encode(JSON.stringify([
+        { "key": "@id", "type": "Required" },
+        { "key": "@type", "type": "Required" },
+        { "key": "http://schema.org/name", "type": "Required" },
+        {
+            "id": "https://zkp-ld.org/circuit/ubique/lessThanPublic",
+            "private_key": "http://schema.org/birthDate",
+            "private_var": "a",
+            "public_val": {
+                "@type": "http://www.w3.org/2001/XMLSchema#dateTime",
+                "@value": "2000-01-01T00:00:00Z"
+            },
+            "public_var": "b",
+            "type": "Circuit"
+        }
+    ]))
+
+    exports.issuer_id = "did:example:issuer0"
+    exports.issuer_key_id = "did:example:issuer0#bls12_381-g2-pub001"
+}}
+###
+GET http://localhost:8000/zkp/keypair
+
+{{
+    exports.issuer_pk = response.parsedBody.public_key
+    exports.issuer_sk = response.parsedBody.secret_key
+}}
+
+GET http://localhost:8000/zkp/issue
+    ?data={{data}}
+    &issuer_pk={{issuer_pk}}
+    &issuer_sk={{issuer_sk}}
+    &issuer_id={{issuer_id}}
+    &issuer_key_id={{issuer_key_id}}
+
+{{
+    exports.credential = response.parsedBody.encoded;
+}}
+
+GET http://localhost:8000/zkp/proving-keys
+    ?definition={{definition}}
+
+{{
+    exports.verifying_keys = base64url_encode(JSON.stringify(
+        response.parsedBody.verifying_keys
+    ))
+    exports.proving_keys = base64url_encode(JSON.stringify(
+        response.parsedBody.proving_keys
+    ))
+}}
+
+GET http://localhost:8000/zkp/present
+    ?credential={{credential}}
+    &definition={{definition}}
+    &proving_keys={{proving_keys}}
+    &issuer_pk={{issuer_pk}}
+    &issuer_id={{issuer_id}}
+    &issuer_key_id={{issuer_key_id}}
+
+{{
+    exports.proof = response.parsedBody.proof
+}}
+
+GET http://localhost:8000/zkp/verify
+    ?proof={{proof}}
+    &issuer_pk={{issuer_pk}}
+    &verifying_keys={{verifying_keys}}
+    &definition={{definition}}
+    &issuer_id={{issuer_id}}
+    &issuer_key_id={{issuer_key_id}}

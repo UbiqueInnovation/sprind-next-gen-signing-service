@@ -74,6 +74,162 @@ mod bbs_plus_routes {
     }
 }
 
+mod zkp_routes {
+    use std::collections::HashMap;
+
+    use next_gen_signatures::{
+        crypto::zkp::{self, Circuits, ProofRequirement},
+        Engine, BASE64_URL_SAFE_NO_PAD,
+    };
+    use rand::rngs::OsRng;
+    use rocket::{get, serde::json::Json};
+    use serde_json::{json, Value};
+
+    use crate::KeyPair;
+
+    #[get("/keypair")]
+    pub fn gen_keypair() -> Json<KeyPair> {
+        let mut rng = OsRng;
+
+        let (pk, sk) = zkp::generate_keypair(&mut rng);
+        let key_pair = KeyPair {
+            public_key: pk,
+            secret_key: sk,
+        };
+
+        Json(key_pair)
+    }
+
+    #[get("/issue?<data>&<issuer_pk>&<issuer_sk>&<issuer_id>&<issuer_key_id>&<expiry_months>")]
+    pub async fn issue(
+        data: String,
+        issuer_pk: String,
+        issuer_sk: String,
+        issuer_id: String,
+        issuer_key_id: String,
+        expiry_months: Option<u32>,
+    ) -> Json<Value> {
+        let mut rng = OsRng;
+
+        let data = BASE64_URL_SAFE_NO_PAD.decode(&data).unwrap();
+        let data = String::from_utf8(data).unwrap();
+        let data = serde_json::from_str::<Value>(&data).unwrap();
+
+        let expiry_months = expiry_months.unwrap_or(36);
+
+        let credential = zkp::issue(
+            &mut rng,
+            data,
+            issuer_pk,
+            issuer_sk,
+            &issuer_id,
+            &issuer_key_id,
+            expiry_months,
+        )
+        .await;
+
+        Json(credential.serialize())
+    }
+
+    #[get("/proving-keys?<definition>")]
+    pub fn gen_proving_keys(definition: String) -> Json<Circuits> {
+        let mut rng = OsRng;
+
+        let reqs = {
+            let bytes = BASE64_URL_SAFE_NO_PAD.decode(definition).unwrap();
+            let str = String::from_utf8(bytes).unwrap();
+            serde_json::from_str::<Vec<ProofRequirement>>(&str).unwrap()
+        };
+
+        let circuits = zkp::circuits::generate_circuits(&mut rng, &reqs);
+
+        Json(circuits)
+    }
+
+    #[get(
+        "/present?<credential>&<definition>&<proving_keys>&<issuer_pk>&<issuer_id>&<issuer_key_id>"
+    )]
+    pub async fn present(
+        credential: String,
+        definition: String,
+        proving_keys: String,
+        issuer_pk: String,
+        issuer_id: String,
+        issuer_key_id: String,
+    ) -> Json<Value> {
+        let mut rng = OsRng;
+
+        println!("{credential}");
+        let credential = zkp::Credential::deserialize_encoded(&credential);
+
+        let reqs = {
+            let bytes = BASE64_URL_SAFE_NO_PAD.decode(definition).unwrap();
+            let str = String::from_utf8(bytes).unwrap();
+            serde_json::from_str::<Vec<ProofRequirement>>(&str).unwrap()
+        };
+
+        let proving_keys = {
+            let bytes = BASE64_URL_SAFE_NO_PAD.decode(proving_keys).unwrap();
+            let str = String::from_utf8(bytes).unwrap();
+            serde_json::from_str::<HashMap<String, String>>(&str).unwrap()
+        };
+
+        let pres = zkp::present(
+            &mut rng,
+            credential,
+            &reqs,
+            &proving_keys,
+            issuer_pk,
+            &issuer_id,
+            &issuer_key_id,
+        )
+        .await;
+
+        Json(json!({
+            "proof": pres.serialize(),
+        }))
+    }
+
+    #[get("/verify?<proof>&<issuer_pk>&<verifying_keys>&<definition>&<issuer_id>&<issuer_key_id>")]
+    pub async fn verify(
+        proof: String,
+        issuer_pk: String,
+        verifying_keys: String,
+        definition: String,
+        issuer_id: String,
+        issuer_key_id: String,
+    ) -> Json<Value> {
+        let mut rng = OsRng;
+
+        let pres = zkp::Presentation::deserialize(&proof);
+
+        let verifying_keys = {
+            let bytes = BASE64_URL_SAFE_NO_PAD.decode(verifying_keys).unwrap();
+            let str = String::from_utf8(bytes).unwrap();
+            serde_json::from_str::<HashMap<String, String>>(&str).unwrap()
+        };
+
+        let reqs = {
+            let bytes = BASE64_URL_SAFE_NO_PAD.decode(definition).unwrap();
+            let str = String::from_utf8(bytes).unwrap();
+            serde_json::from_str::<Vec<ProofRequirement>>(&str).unwrap()
+        };
+
+        let json = zkp::verify(
+            &mut rng,
+            pres,
+            issuer_pk,
+            verifying_keys,
+            &reqs,
+            &issuer_id,
+            &issuer_key_id,
+        )
+        .await;
+
+        Json(json)
+    }
+}
+
 #[get("/")]
 fn index() -> String {
     format!("SPRIND Signing Service v{VERSION}")
@@ -123,6 +279,16 @@ fn rocket() -> _ {
                 bbs_plus_routes::BbsPlusG2Provider_gen_keypair,
                 bbs_plus_routes::BbsPlusG2Provider_sign,
                 bbs_plus_routes::BbsPlusG2Provider_verify,
+            ],
+        )
+        .mount(
+            "/zkp/",
+            routes![
+                zkp_routes::gen_keypair,
+                zkp_routes::issue,
+                zkp_routes::gen_proving_keys,
+                zkp_routes::present,
+                zkp_routes::verify
             ],
         )
 }

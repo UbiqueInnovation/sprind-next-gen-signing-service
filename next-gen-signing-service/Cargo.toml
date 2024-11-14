@@ -9,6 +9,8 @@ next-gen-signatures = { path = "../next-gen-signatures", features = [
     "rocket",
 ] }
 paste = "1.0.15"
+rand = "0.8.5"
 rocket = { version = "0.5.1", features = ["json"] }
 rocket-errors = "0.1.0"
+serde_json = "1.0.132"
 serde_urlencoded = "0.7.1"

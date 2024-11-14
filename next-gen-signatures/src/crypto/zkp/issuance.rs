@@ -17,7 +17,7 @@ pub async fn issue<R: RngCore>(
     issuer_sk: String,
     issuer_id: &str,
     issuer_key_id: &str,
-    exp_moths: u32,
+    exp_months: u32,
 ) -> Credential {
     let issuer = RdfQuery::from_jsonld(
         &json!(
@@ -45,7 +45,7 @@ pub async fn issue<R: RngCore>(
 
     let now: DateTime<Utc> = SystemTime::now().into();
     let exp = now
-        .checked_add_months(Months::new(exp_moths))
+        .checked_add_months(Months::new(exp_months))
         .expect("Failed to get expiration date");
     let now = now.format("%Y-%m-%dT%H:%M:%SZ").to_string();
     let exp = exp.format("%Y-%m-%dT%H:%M:%SZ").to_string();

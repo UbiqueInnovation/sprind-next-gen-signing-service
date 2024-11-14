@@ -1,4 +1,5 @@
 use circuits::*;
+pub use common::generate_keypair;
 pub use issuance::issue;
 pub use presentation::present;
 pub use types::*;

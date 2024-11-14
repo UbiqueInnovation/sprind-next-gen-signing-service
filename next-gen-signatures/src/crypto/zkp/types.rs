@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
+use multibase::Base;
 use oxrdf::{GraphName, NamedNode, Term};
 use serde::{Deserialize, Serialize};
-use serde_json::Value as JsonValue;
+use serde_json::{json, Value as JsonValue};
 
 use crate::rdf::RdfQuery;
 
@@ -24,8 +25,20 @@ impl Presentation {
 
         Self { graph }
     }
+
+    pub fn serialize(&self) -> String {
+        let str = self.graph.to_rdf_string();
+        multibase::encode(Base::Base64Url, str)
+    }
+
+    pub fn deserialize(str: &str) -> Self {
+        let (_, quads) = multibase::decode(str).unwrap();
+        let quads = String::from_utf8(quads).unwrap();
+        Self::new(&quads)
+    }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Circuits {
     pub verifying_keys: HashMap<String, String>,
     pub proving_keys: HashMap<String, String>,
@@ -61,6 +74,43 @@ impl Credential {
             ]),
             None,
         )
+    }
+
+    pub fn serialize(&self) -> JsonValue {
+        let json = self.as_json();
+        let encoded = multibase::encode(
+            Base::Base64Url,
+            json!({
+                "rdf_doc": self.rdf_doc,
+                "rdf_proof": self.rdf_proof
+            })
+            .to_string(),
+        );
+
+        json!({
+            "humanReadable": json,
+            "encoded": encoded,
+        })
+    }
+
+    pub fn deserialize_encoded(encoded: &str) -> Self {
+        let (_, decoded) = multibase::decode(encoded).unwrap();
+
+        let decoded = String::from_utf8(decoded).unwrap();
+
+        println!("{decoded}");
+
+        let json = serde_json::from_str::<JsonValue>(&decoded).unwrap();
+
+        println!("{json}");
+
+        let rdf_doc = json["rdf_doc"].as_str().unwrap();
+        let rdf_doc = multibase::encode(Base::Base64, rdf_doc);
+
+        let rdf_proof = json["rdf_proof"].as_str().unwrap();
+        let rdf_proof = multibase::encode(Base::Base64, rdf_proof);
+
+        Self::new(&rdf_doc, &rdf_proof)
     }
 }
 

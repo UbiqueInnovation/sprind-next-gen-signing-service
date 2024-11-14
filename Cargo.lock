@@ -2548,8 +2548,10 @@ version = "0.0.4"
 dependencies = [
  "next-gen-signatures",
  "paste",
+ "rand",
  "rocket",
  "rocket-errors",
+ "serde_json",
  "serde_urlencoded",
 ]
 
