@@ -1,6 +1,6 @@
 [package]
 name = "next-gen-signatures"
-version = "0.0.4"
+version = "0.1.0"
 edition = "2021"
 
 [features]
@@ -31,6 +31,7 @@ bbs = [
     "dep:multibase",
     "dep:serde_json",
     "dep:serde",
+    "dep:itertools",
 
     "dep:regex",
     "dep:tokio",
@@ -76,8 +77,7 @@ regex = { version = "1.11.0", optional = true }
 tokio = { version = "1.40.0", optional = true }
 rdf-canon = { version = "0.15.0", optional = true }
 chrono = { version = "0.4.38", optional = true }
-jsonpath-rust = "0.7.3"
-itertools = "0.13.0"
+itertools = { version = "0.13.0", optional = true }
 
 [target.'cfg(any(target_os = "android"))'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
