@@ -48,12 +48,13 @@ GET http://localhost:8000/zkp/keypair
     exports.issuer_sk = response.parsedBody.secret_key
 }}
 
-GET http://localhost:8000/zkp/issue
-    ?data={{data}}
-    &issuer_pk={{issuer_pk}}
+POST http://localhost:8000/zkp/issue
+    ?issuer_pk={{issuer_pk}}
     &issuer_sk={{issuer_sk}}
     &issuer_id={{issuer_id}}
     &issuer_key_id={{issuer_key_id}}
+
+{{data}}
 
 {{
     exports.credential = response.parsedBody.encoded;
@@ -71,22 +72,26 @@ GET http://localhost:8000/zkp/proving-keys
     ))
 }}
 
-GET http://localhost:8000/zkp/present
-    ?credential={{credential}}
-    &definition={{definition}}
-    &proving_keys={{proving_keys}}
-    &issuer_pk={{issuer_pk}}
+POST http://localhost:8000/zkp/present
+    ?issuer_pk={{issuer_pk}}
     &issuer_id={{issuer_id}}
     &issuer_key_id={{issuer_key_id}}
+
+{
+    "credential": "{{credential}}",
+    "definition": "{{definition}}",
+    "proving_keys": "{{proving_keys}}"
+}
 
 {{
     exports.proof = response.parsedBody.proof
 }}
 
-GET http://localhost:8000/zkp/verify
-    ?proof={{proof}}
-    &issuer_pk={{issuer_pk}}
+POST http://localhost:8000/zkp/verify
+    ?issuer_pk={{issuer_pk}}
     &verifying_keys={{verifying_keys}}
     &definition={{definition}}
     &issuer_id={{issuer_id}}
     &issuer_key_id={{issuer_key_id}}
+
+{{proof}}

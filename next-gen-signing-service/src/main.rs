@@ -82,7 +82,7 @@ mod zkp_routes {
         Engine, BASE64_URL_SAFE_NO_PAD,
     };
     use rand::rngs::OsRng;
-    use rocket::{get, serde::json::Json};
+    use rocket::{get, post, serde::json::Json};
     use serde_json::{json, Value};
 
     use crate::KeyPair;
@@ -100,7 +100,10 @@ mod zkp_routes {
         Json(key_pair)
     }
 
-    #[get("/issue?<data>&<issuer_pk>&<issuer_sk>&<issuer_id>&<issuer_key_id>&<expiry_months>")]
+    #[post(
+        "/issue?<issuer_pk>&<issuer_sk>&<issuer_id>&<issuer_key_id>&<expiry_months>",
+        data = "<data>"
+    )]
     pub async fn issue(
         data: String,
         issuer_pk: String,
@@ -146,20 +149,19 @@ mod zkp_routes {
         Json(circuits)
     }
 
-    #[get(
-        "/present?<credential>&<definition>&<proving_keys>&<issuer_pk>&<issuer_id>&<issuer_key_id>"
-    )]
+    #[post("/present?<issuer_pk>&<issuer_id>&<issuer_key_id>", data = "<data>")]
     pub async fn present(
-        credential: String,
-        definition: String,
-        proving_keys: String,
+        data: Json<Value>,
         issuer_pk: String,
         issuer_id: String,
         issuer_key_id: String,
     ) -> Json<Value> {
         let mut rng = OsRng;
 
-        println!("{credential}");
+        let credential = data["credential"].as_str().unwrap().to_string();
+        let definition = data["definition"].as_str().unwrap().to_string();
+        let proving_keys = data["proving_keys"].as_str().unwrap().to_string();
+
         let credential = zkp::Credential::deserialize_encoded(&credential);
 
         let reqs = {
@@ -190,7 +192,10 @@ mod zkp_routes {
         }))
     }
 
-    #[get("/verify?<proof>&<issuer_pk>&<verifying_keys>&<definition>&<issuer_id>&<issuer_key_id>")]
+    #[post(
+        "/verify?<issuer_pk>&<verifying_keys>&<definition>&<issuer_id>&<issuer_key_id>",
+        data = "<proof>"
+    )]
     pub async fn verify(
         proof: String,
         issuer_pk: String,
