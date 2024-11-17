@@ -38,7 +38,7 @@
     ]))
 
     exports.issuer_id = "did:example:issuer0"
-    exports.issuer_key_id = "did:example:issuer0#bls12_381-g2-pub001"
+    exports.issuer_key_id = encodeURIComponent("did:example:issuer0#bls12_381-g2-pub001")
 }}
 ###
 GET http://localhost:8000/zkp/keypair
