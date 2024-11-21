@@ -1,4 +1,4 @@
-FROM rust:1.77.2-slim-bookworm AS builder
+FROM rust:1.81-slim-bookworm AS builder
 RUN apt-get update && apt-get install -y \
     libssl-dev \
     build-essential \
@@ -14,6 +14,7 @@ COPY ./Cargo.toml /app/Cargo.toml
 COPY ./Cargo.lock /app/Cargo.lock
 COPY ./next-gen-signatures /app/next-gen-signatures
 COPY ./next-gen-signing-service /app/next-gen-signing-service
+COPY ./zkp-util /app/zkp-util
 
 RUN cargo build --release
 
