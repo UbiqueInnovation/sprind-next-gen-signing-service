@@ -2,3 +2,9 @@
 resolver = "2"
 members = ["next-gen-signatures", "next-gen-signing-service"]
 default-members = ["next-gen-signatures", "next-gen-signing-service"]
+
+[patch.crates-io]
+legogroth16 = { git = "https://github.com/docknetwork/crypto.git", rev = "170248633bc09ced3f3417e97af4006288630692" }
+proof_system = { git = "https://github.com/docknetwork/crypto.git", rev = "170248633bc09ced3f3417e97af4006288630692" }
+bbs_plus = { git = "https://github.com/docknetwork/crypto.git", rev = "170248633bc09ced3f3417e97af4006288630692" }
+dock_crypto_utils = { git = "https://github.com/docknetwork/crypto.git", rev = "170248633bc09ced3f3417e97af4006288630692" }
