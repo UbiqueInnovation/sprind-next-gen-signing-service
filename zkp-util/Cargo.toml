@@ -1,0 +1,8 @@
+[package]
+name = "zkp-util"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+next-gen-signatures = { path = "../next-gen-signatures", features = ["bbs"] }
+tokio = { version = "1.41.1", features = ["full"] }

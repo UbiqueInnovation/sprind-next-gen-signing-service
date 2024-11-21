@@ -118,6 +118,8 @@ mod zkp_routes {
         let data = String::from_utf8(data).unwrap();
         let data = serde_json::from_str::<Value>(&data).unwrap();
 
+        println!("Issuing the following data: {data}");
+
         let expiry_months = expiry_months.unwrap_or(36);
 
         let credential = zkp::issue(

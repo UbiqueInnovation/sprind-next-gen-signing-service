@@ -41,14 +41,14 @@
     exports.issuer_key_id = encodeURIComponent("did:example:issuer0#bls12_381-g2-pub001")
 }}
 ###
-GET http://localhost:8000/zkp/keypair
+GET https://sprind-signing-service.ubique.ch/zkp/keypair
 
 {{
     exports.issuer_pk = response.parsedBody.public_key
     exports.issuer_sk = response.parsedBody.secret_key
 }}
 
-POST http://localhost:8000/zkp/issue
+POST https://sprind-signing-service.ubique.ch/zkp/issue
     ?issuer_pk={{issuer_pk}}
     &issuer_sk={{issuer_sk}}
     &issuer_id={{issuer_id}}
@@ -60,7 +60,7 @@ POST http://localhost:8000/zkp/issue
     exports.credential = response.parsedBody.encoded;
 }}
 
-GET http://localhost:8000/zkp/proving-keys
+GET https://sprind-signing-service.ubique.ch/zkp/proving-keys
     ?definition={{definition}}
 
 {{
@@ -72,7 +72,7 @@ GET http://localhost:8000/zkp/proving-keys
     ))
 }}
 
-POST http://localhost:8000/zkp/present
+POST https://sprind-signing-service.ubique.ch/zkp/present
     ?issuer_pk={{issuer_pk}}
     &issuer_id={{issuer_id}}
     &issuer_key_id={{issuer_key_id}}
@@ -87,7 +87,7 @@ POST http://localhost:8000/zkp/present
     exports.proof = response.parsedBody.proof
 }}
 
-POST http://localhost:8000/zkp/verify
+POST https://sprind-signing-service.ubique.ch/zkp/verify
     ?issuer_pk={{issuer_pk}}
     &verifying_keys={{verifying_keys}}
     &definition={{definition}}

@@ -4926,6 +4926,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
@@ -5999,6 +6000,14 @@ dependencies = [
  "zeroize",
  "zopfli",
  "zstd",
+]
+
+[[package]]
+name = "zkp-util"
+version = "0.1.0"
+dependencies = [
+ "next-gen-signatures",
+ "tokio",
 ]
 
 [[package]]
