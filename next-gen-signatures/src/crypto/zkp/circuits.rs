@@ -15,11 +15,23 @@ const LESS_THAN_PUBLIC_R1CS: &[u8] =
 const LESS_THAN_PUBLIC_WASM: &[u8] =
     include_bytes!("../../../circom/bls12381/less_than_public_64.wasm");
 
+pub const GREATER_THAN_PUBLIC_ID: &str = "https://zkp-ld.org/circuit/ubique/greaterThanPublic";
+const GREATER_THAN_PUBLIC_R1CS: &[u8] =
+    include_bytes!("../../../circom/bls12381/larger_than_public_64.r1cs");
+const GREATER_THAN_PUBLIC_WASM: &[u8] =
+    include_bytes!("../../../circom/bls12381/larger_than_public_64.wasm");
+
 pub fn get_circuit_defs() -> HashMap<String, (&'static [u8], &'static [u8])> {
-    HashMap::from([(
-        LESS_THAN_PUBLIC_ID.to_string(),
-        (LESS_THAN_PUBLIC_R1CS, LESS_THAN_PUBLIC_WASM),
-    )])
+    HashMap::from([
+        (
+            LESS_THAN_PUBLIC_ID.to_string(),
+            (LESS_THAN_PUBLIC_R1CS, LESS_THAN_PUBLIC_WASM),
+        ),
+        (
+            GREATER_THAN_PUBLIC_ID.to_string(),
+            (GREATER_THAN_PUBLIC_R1CS, GREATER_THAN_PUBLIC_WASM),
+        ),
+    ])
 }
 
 pub fn generate_circuits<R: RngCore>(rng: &mut R, reqs: &Vec<ProofRequirement>) -> Circuits {
