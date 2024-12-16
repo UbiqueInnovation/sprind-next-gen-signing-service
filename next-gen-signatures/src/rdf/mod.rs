@@ -8,6 +8,7 @@ use oxrdf::{Graph, GraphName, NamedNode, Quad, Subject, Term, Triple};
 use oxttl::NQuadsParser;
 use rdf_types::generator;
 use serde_json::{json, Value as JsonValue};
+use static_iref::iri;
 
 const TYPE: &str = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
 
@@ -50,7 +51,9 @@ impl RdfQuery {
     pub async fn from_jsonld(data: &str, prefix: Option<String>) -> anyhow::Result<Self> {
         let doc = RemoteDocument::new(None, None, json_ld::syntax::Value::parse_str(data)?.0);
 
-        let loader = ReqwestLoader::new();
+        let mut loader = json_ld::FsLoader::default();
+        loader.mount(iri!("https://www.w3.org/").to_owned(), "jsonld");
+        loader.mount(iri!("https://w3id.org/").to_owned(), "jsonld");
 
         let mut generator = if let Some(prefix) = prefix {
             generator::Blank::new_with_prefix(prefix)
