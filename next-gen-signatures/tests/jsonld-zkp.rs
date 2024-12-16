@@ -25,7 +25,9 @@ async fn jsonld_zkp() {
             r#"
             {{
                 "@context": [
-                    "https://www.w3.org/ns/controller/v1",
+                    "https://www.w3.org/ns/did/v1",
+                    "https://w3id.org/security/multikey/v1",
+                    "https://w3id.org/security/jwk/v1",
                     "https://w3id.org/security/data-integrity/v2"
                 ],
                 "id": "did:example:issuer0",

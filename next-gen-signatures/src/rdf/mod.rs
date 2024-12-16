@@ -3,7 +3,7 @@ use std::{
     fmt::Write,
 };
 
-use json_ld::{syntax::Parse as _, JsonLdProcessor as _, RemoteDocument};
+use json_ld::{syntax::Parse as _, JsonLdProcessor as _, RemoteDocument, ReqwestLoader};
 use oxrdf::{Graph, GraphName, NamedNode, Quad, Subject, Term, Triple};
 use oxttl::NQuadsParser;
 use rdf_types::generator;
@@ -54,6 +54,9 @@ impl RdfQuery {
         let mut loader = json_ld::FsLoader::default();
         loader.mount(iri!("https://www.w3.org/").to_owned(), "jsonld");
         loader.mount(iri!("https://w3id.org/").to_owned(), "jsonld");
+        loader.mount(iri!("http://schema.org/").to_owned(), "jsonld");
+
+        let loader = json_ld::loader::ChainLoader::new(loader, ReqwestLoader::new());
 
         let mut generator = if let Some(prefix) = prefix {
             generator::Blank::new_with_prefix(prefix)
