@@ -3,7 +3,7 @@ use std::{
     fmt::Write,
 };
 
-use json_ld::{syntax::Parse as _, JsonLdProcessor as _, RemoteDocument, ReqwestLoader};
+use json_ld::{syntax::Parse as _, JsonLdProcessor as _, RemoteDocument};
 use oxrdf::{Graph, GraphName, NamedNode, Quad, Subject, Term, Triple};
 use oxttl::NQuadsParser;
 use rdf_types::generator;
