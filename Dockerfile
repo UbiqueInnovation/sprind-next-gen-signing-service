@@ -31,5 +31,6 @@ WORKDIR /app
 COPY --from=builder /app/target/release/next-gen-signing-service /usr/bin/web-server
 # NOTE: Config is loaded dynamically at startup so we can add it after building.
 COPY ./Rocket.toml /app/Rocket.toml
+COPY ./jsonld /app/jsonld
 
 CMD ["/usr/bin/web-server"]
