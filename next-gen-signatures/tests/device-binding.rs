@@ -1,6 +1,6 @@
 use ark_bls12_381::{Bls12_381, Fr};
 use bbs_plus::prelude::{SignatureG1, SignatureParamsG1};
-use next_gen_signatures::crypto::zkp::{DeviceBindingVerification, ProofRequirement};
+use next_gen_signatures::crypto::zkp::ProofRequirement;
 use p256::ecdsa::SigningKey;
 use proof_system::prelude::{
     bbs_plus::PoKBBSSignatureG1Prover, bound_check_legogroth16::BoundCheckLegoGroth16Prover,
@@ -108,8 +108,6 @@ pub async fn device_binding_test() -> anyhow::Result<()> {
         ISSUER_KEY_ID,
     )
     .await;
-
-    let db = db.map(|db| (db, DeviceBindingVerification { binding_string }));
 
     let json = zkp::verify(
         &mut rng,

@@ -17,7 +17,7 @@ use serde_json::{json, Value as JsonValue};
 
 use crate::rdf::RdfQuery;
 
-use super::{load_circuits, Credential, Presentation, ProofRequirement};
+use super::{load_circuits, Credential, DeviceBindingVerification, Presentation, ProofRequirement};
 
 pub async fn present<R: RngCore>(
     rng: &mut R,
@@ -29,7 +29,7 @@ pub async fn present<R: RngCore>(
     issuer_key_id: &str,
 ) -> (
     Presentation,
-    Option<
+    Option<(
         DeviceBinding<
             p256_arithmetic::ProjectivePoint,
             32,
@@ -37,7 +37,8 @@ pub async fn present<R: RngCore>(
             40,
             Bls12<Config>,
         >,
-    >,
+        DeviceBindingVerification,
+    )>,
 ) {
     let circuits = load_circuits(proving_keys);
 
@@ -211,7 +212,7 @@ pub async fn present<R: RngCore>(
                         ))
                     })
                     .unwrap()
-                    + 1;
+                    + 2;
                 let y_index = canonical_doc
                     .iter()
                     .position(|t| {
@@ -220,12 +221,11 @@ pub async fn present<R: RngCore>(
                         ))
                     })
                     .unwrap()
-                    + 1;
+                    + 2;
 
                 println!("indices: {x_index} {y_index}");
                 println!("{:#?}", canonical_doc[x_index]);
 
-                // TODO: Figure out why this doesn't work
                 meta_statements
                     .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, x_index), (1, 0)])));
                 meta_statements
@@ -250,14 +250,23 @@ pub async fn present<R: RngCore>(
                 let signature: p256::ecdsa::Signature = signing_key.sign(binding_string.as_bytes());
                 let signature: Vec<u8> = signature.to_vec();
 
-                db = Some(device_binding(
-                    signature,
-                    public_key.clone(),
-                    binding_string.as_bytes().to_vec(),
-                    bbs_x,
-                    ped_params_x,
-                    bbs_y,
-                    ped_params_y,
+                let verification = DeviceBindingVerification {
+                    binding_string: binding_string.clone(),
+                    x_index,
+                    y_index,
+                };
+
+                db = Some((
+                    device_binding(
+                        signature,
+                        public_key.clone(),
+                        binding_string.as_bytes().to_vec(),
+                        bbs_x,
+                        ped_params_x,
+                        bbs_y,
+                        ped_params_y,
+                    ),
+                    verification,
                 ));
             }
         }

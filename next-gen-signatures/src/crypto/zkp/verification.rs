@@ -17,6 +17,8 @@ use serde_json::{json, Value as JsonValue};
 
 pub struct DeviceBindingVerification {
     pub binding_string: String,
+    pub x_index: usize,
+    pub y_index: usize,
 }
 
 pub async fn verify<R: RngCore>(
@@ -64,7 +66,7 @@ pub async fn verify<R: RngCore>(
     .unwrap()
     .to_rdf_string();
 
-    let has_db = db.is_some();
+    let mut meta_statements = MetaStatements::new();
     let statements = if let Some((db, verification)) = db {
         assert!(
             db.verify(verification.binding_string.as_bytes().to_vec()),
@@ -89,18 +91,19 @@ pub async fn verify<R: RngCore>(
         // add the statements about the public key commitment
         statements.add(PedersenCommitment::new_statement_from_params(bases_y, cy));
 
+        meta_statements.add_witness_equality(EqualWitnesses(BTreeSet::from([
+            (0, verification.x_index),
+            (1, 0),
+        ])));
+        meta_statements.add_witness_equality(EqualWitnesses(BTreeSet::from([
+            (0, verification.y_index),
+            (2, 0),
+        ])));
+
         Some(statements)
     } else {
         None
     };
-
-    let mut meta_statements = MetaStatements::new();
-
-    if has_db {
-        // TODO: Figure out why this doesn't work
-        meta_statements.add_witness_equality(EqualWitnesses(BTreeSet::from([(0, 32), (1, 0)])));
-        meta_statements.add_witness_equality(EqualWitnesses(BTreeSet::from([(0, 35), (2, 0)])));
-    }
 
     let success = rdf_proofs::verify_proof_string(
         rng,
