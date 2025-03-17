@@ -306,6 +306,9 @@ async fn jsonld_zkp() {
         None,
         Some(&predicates),
         Some(&circuits),
+        None,
+        None,
+        None,
     )
     .unwrap();
 
@@ -330,6 +333,8 @@ async fn jsonld_zkp() {
         None,
         None,
         Some(snark_verifying_keys),
+        None,
+        None,
     );
 
     assert!(success.is_ok(), "{success:#?}");

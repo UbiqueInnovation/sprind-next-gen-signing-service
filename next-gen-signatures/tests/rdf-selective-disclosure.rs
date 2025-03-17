@@ -199,6 +199,9 @@ fn derive_and_verify_proof_with_hidden_literals() {
         None,
         vec![],
         HashMap::new(),
+        None,
+        None,
+        None,
     )
     .unwrap();
 
@@ -209,6 +212,8 @@ fn derive_and_verify_proof_with_hidden_literals() {
         Some(challenge),
         None,
         HashMap::new(),
+        None,
+        None,
     );
 
     assert!(verified.is_ok(), "{:?}", verified);

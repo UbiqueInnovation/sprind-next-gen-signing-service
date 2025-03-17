@@ -53,13 +53,13 @@ ark-bls12-381 = { version = "0.4.0", optional = true }
 ark-ec = { version = "0.4.2", optional = true }
 ark-serialize = { version = "0.4.2", optional = true }
 ark-std = { version = "0.4.0", optional = true }
-bbs_plus = { version = "0.22.0", optional = true }
+bbs_plus = { version = "0.23.0", optional = true }
 blake2 = { version = "0.10.6", optional = true }
-dock_crypto_utils = { version = "0.20.0", optional = true }
+dock_crypto_utils = { version = "0.21.0", optional = true }
 num-bigint = { version = "0.4.6", optional = true }
 rand = { version = "0.8.5", optional = true }
 schnorr_pok = { version = "0.20.0", optional = true }
-proof_system = { version = "0.31.0", optional = true }
+proof_system = { version = "0.32.0", optional = true }
 json-ld = { version = "0.21.1", features = ["reqwest"], optional = true }
 rdf-types = { version = "0.22.4", optional = true }
 static-iref = { version = "3.0.0", optional = true }
@@ -67,7 +67,7 @@ iref = { version = "3.2.2", optional = true }
 oxigraph = { git = "https://github.com/UbiqueInnovation/oxigraph-v0.3.22-patch.git", optional = true }
 oxrdf = { version = "0.2.1", optional = true }
 oxttl = { version = "0.1.1", optional = true }
-rdf-proofs = { version = "0.10.0", optional = true }
+rdf-proofs = { path = "../../rdf-proofs", optional = true }
 legogroth16 = { version = "0.15.0", optional = true }
 multibase = { version = "0.9.1", optional = true }
 serde_json = { version = "1.0.132", optional = true }
@@ -80,6 +80,7 @@ chrono = { version = "0.4.38", optional = true }
 itertools = { version = "0.13.0", optional = true }
 p256 = "0.13.2"
 proves = { git = "https://github.com/UbiqueInnovation/zkattest-rs.git" }
+hex = "0.4.3"
 
 [target.'cfg(any(target_os = "android"))'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }

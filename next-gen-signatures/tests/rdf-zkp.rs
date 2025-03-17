@@ -247,6 +247,9 @@ fn rdf_zkp() {
         None,
         Some(&predicates),
         Some(&circuit),
+        None,
+        None,
+        None,
     )
     .unwrap();
 
@@ -268,6 +271,8 @@ fn rdf_zkp() {
         None,
         None,
         Some(snark_verifying_keys.clone()),
+        None,
+        None,
     );
     assert!(verified.is_ok(), "{:?}", verified);
 

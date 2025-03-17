@@ -1,6 +1,15 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
-use oxrdf::{GraphName, NamedNode};
+use ark_bls12_381::{Bls12_381, Config, Fr, G1Projective};
+use ark_ec::{bls12::Bls12, AffineRepr, CurveGroup, VariableBaseMSM};
+use ark_std::UniformRand;
+use num_bigint::BigUint;
+use oxrdf::{GraphName, NamedNode, Term};
+use p256::ecdsa::SigningKey;
+use proof_system::prelude::{
+    ped_comm::PedersenCommitment, EqualWitnesses, MetaStatements, Statements, Witness, Witnesses,
+};
+use proves::{device_binding, dleq::PairingPedersenParams, p256_arithmetic, tom256, DeviceBinding};
 use rand::RngCore;
 use rdf_proofs::VcPairString;
 use rdf_types::generator;
@@ -18,7 +27,18 @@ pub async fn present<R: RngCore>(
     issuer_pk: String,
     issuer_id: &str,
     issuer_key_id: &str,
-) -> Presentation {
+) -> (
+    Presentation,
+    Option<
+        DeviceBinding<
+            p256_arithmetic::ProjectivePoint,
+            32,
+            tom256::ProjectivePoint,
+            40,
+            Bls12<Config>,
+        >,
+    >,
+) {
     let circuits = load_circuits(proving_keys);
 
     let json = vc.as_json();
@@ -69,20 +89,35 @@ pub async fn present<R: RngCore>(
 
     let mut gen = generator::Blank::new_with_prefix("e".to_string());
 
-    for req in reqs {
-        let (key, value) = body.iter().find(|(key, _)| req.get_key() == *key).unwrap();
+    let mut statements = Statements::new();
+    let mut meta_statements = MetaStatements::new();
+    let mut witnesses = Witnesses::new();
 
+    let mut db = None;
+
+    let canonical_doc = rdf_proofs::signature::transform(
+        &RdfQuery::new(&vc.rdf_doc)
+            .unwrap()
+            .as_graph(GraphName::DefaultGraph),
+    )
+    .unwrap();
+    println!("canonical_doc: {:#?}", canonical_doc);
+
+    for req in reqs {
         match req {
-            ProofRequirement::Required { .. } => {
+            ProofRequirement::Required { key } => {
+                let (key, value) = body.iter().find(|(k, _)| key == *k).unwrap();
                 subject.insert(key.clone(), value.clone());
             }
             ProofRequirement::Circuit {
                 id,
                 private_var,
+                private_key,
                 public_var,
                 public_val,
                 ..
             } => {
+                let (key, _) = body.iter().find(|(k, _)| private_key == *k).unwrap();
                 let value = rdf_body
                     .get_value(NamedNode::new_unchecked(key), None)
                     .unwrap()
@@ -134,11 +169,109 @@ pub async fn present<R: RngCore>(
 
                 subject.insert(key.clone(), json!({ "@id": blank }));
             }
+            ProofRequirement::DeviceBinding {
+                signing_key,
+                public_key,
+                binding_string,
+                x,
+                y,
+            } => {
+                println!("bytes2: {x:?}, {y:?}");
+
+                println!("x-value: {}", BigUint::from_bytes_be(&x));
+                let x = Fr::from(BigUint::from_bytes_be(&x));
+                let y = Fr::from(BigUint::from_bytes_be(&y));
+                let bases_x = (0..2)
+                    .map(|_| G1Projective::rand(rng).into_affine())
+                    .collect::<Vec<_>>();
+                let bases_y = (0..2)
+                    .map(|_| G1Projective::rand(rng).into_affine())
+                    .collect::<Vec<_>>();
+                let scalars_x = vec![x, Fr::rand(rng)];
+                let scalars_y = vec![y, Fr::rand(rng)];
+
+                let commitment_x = G1Projective::msm_unchecked(&bases_x, &scalars_x).into_affine();
+                let commitment_y = G1Projective::msm_unchecked(&bases_y, &scalars_y).into_affine();
+
+                statements.add(PedersenCommitment::new_statement_from_params(
+                    bases_x.clone(),
+                    commitment_x,
+                ));
+
+                statements.add(PedersenCommitment::new_statement_from_params(
+                    bases_y.clone(),
+                    commitment_y,
+                ));
+
+                let x_index = canonical_doc
+                    .iter()
+                    .position(|t| {
+                        t == &Term::NamedNode(NamedNode::new_unchecked(
+                            "https://example.org/deviceBinding/x",
+                        ))
+                    })
+                    .unwrap()
+                    + 1;
+                let y_index = canonical_doc
+                    .iter()
+                    .position(|t| {
+                        t == &Term::NamedNode(NamedNode::new_unchecked(
+                            "https://example.org/deviceBinding/y",
+                        ))
+                    })
+                    .unwrap()
+                    + 1;
+
+                println!("indices: {x_index} {y_index}");
+                println!("{:#?}", canonical_doc[x_index]);
+
+                // TODO: Figure out why this doesn't work
+                meta_statements
+                    .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, x_index), (1, 0)])));
+                meta_statements
+                    .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, y_index), (2, 0)])));
+
+                witnesses.add(Witness::PedersenCommitment(scalars_x.clone()));
+                witnesses.add(Witness::PedersenCommitment(scalars_y.clone()));
+
+                let ped_params_x = PairingPedersenParams::<Bls12_381>::new_with_params(
+                    bases_x[0].into_group(),
+                    bases_x[1].into_group(),
+                );
+                let bbs_x = ped_params_x.commit_with_blinding(scalars_x[0], scalars_x[1]);
+                let ped_params_y = PairingPedersenParams::<Bls12_381>::new_with_params(
+                    bases_y[0].into_group(),
+                    bases_y[1].into_group(),
+                );
+                let bbs_y = ped_params_y.commit_with_blinding(scalars_y[0], scalars_y[1]);
+
+                use p256::ecdsa::signature::Signer;
+                let signing_key = SigningKey::from_bytes(signing_key.as_slice().into()).unwrap();
+                let signature: p256::ecdsa::Signature = signing_key.sign(binding_string.as_bytes());
+                let signature: Vec<u8> = signature.to_vec();
+
+                db = Some(device_binding(
+                    signature,
+                    public_key.clone(),
+                    binding_string.as_bytes().to_vec(),
+                    bbs_x,
+                    ped_params_x,
+                    bbs_y,
+                    ped_params_y,
+                ));
+            }
         }
     }
 
     let disc_vc = {
         let mut disc_vc = json.clone();
+
+        if db.is_some() {
+            disc_vc
+                .as_object_mut()
+                .unwrap()
+                .remove("https://example.org/deviceBinding");
+        }
 
         disc_vc["https://www.w3.org/2018/credentials#credentialSubject"] = json!(subject);
         RdfQuery::from_jsonld(&disc_vc.to_string(), Some("e".to_string()))
@@ -161,8 +294,11 @@ pub async fn present<R: RngCore>(
         None,
         Some(&predicates),
         Some(&circuits),
+        Some(statements),
+        Some(meta_statements),
+        Some(witnesses),
     )
     .unwrap();
 
-    Presentation::new(&proof)
+    (Presentation::new(&proof), db)
 }

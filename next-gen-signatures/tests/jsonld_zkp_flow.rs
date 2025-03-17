@@ -82,7 +82,7 @@ pub async fn jsonld_zkp_flow() {
 
     let circuits = zkp::circuits::generate_circuits(&mut rng, &reqs);
 
-    let pres = zkp::present(
+    let (pres, _) = zkp::present(
         &mut rng,
         vc,
         &reqs,
@@ -101,6 +101,7 @@ pub async fn jsonld_zkp_flow() {
         &reqs,
         ISSUER_ID,
         ISSUER_KEY_ID,
+        None,
     )
     .await;
 

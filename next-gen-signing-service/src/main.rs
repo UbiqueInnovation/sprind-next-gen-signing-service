@@ -176,7 +176,7 @@ mod zkp_routes {
             serde_json::from_str::<HashMap<String, String>>(&str).unwrap()
         };
 
-        let pres = zkp::present(
+        let (pres, _db) = zkp::present(
             &mut rng,
             credential,
             &reqs,
@@ -186,6 +186,8 @@ mod zkp_routes {
             &issuer_key_id,
         )
         .await;
+
+        // TODO: Do something with the device binding
 
         Json(json!({
             "proof": pres.serialize(),
@@ -220,6 +222,8 @@ mod zkp_routes {
             serde_json::from_str::<Vec<ProofRequirement>>(&str).unwrap()
         };
 
+        // TODO: get device binding
+
         let json = zkp::verify(
             &mut rng,
             pres,
@@ -228,6 +232,7 @@ mod zkp_routes {
             &reqs,
             &issuer_id,
             &issuer_key_id,
+            None,
         )
         .await;
 

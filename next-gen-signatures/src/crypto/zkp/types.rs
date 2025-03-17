@@ -137,13 +137,13 @@ pub enum ProofRequirement {
         public_var: String,
         public_val: PublicValue,
     },
-}
+    DeviceBinding {
+        public_key: Vec<u8>,
+        signing_key: Vec<u8>,
 
-impl ProofRequirement {
-    pub fn get_key(&self) -> &str {
-        match self {
-            ProofRequirement::Required { key } => key,
-            ProofRequirement::Circuit { private_key, .. } => private_key,
-        }
-    }
+        binding_string: String,
+
+        x: Vec<u8>,
+        y: Vec<u8>,
+    },
 }

@@ -598,6 +598,9 @@ _:b3 <http://www.w3.org/1999/02/22-rdf-syntax-ns#rest> <http://www.w3.org/1999/0
             None,
             Some(&predicates),
             Some(&circuits),
+            None,
+            None,
+            None,
         )
         .unwrap()
     }
@@ -659,6 +662,8 @@ _:c14n7 <https://w3id.org/security#verificationMethod> <did:example:issuer0#bls1
             None,
             None,
             Some(snark_verifying_keys),
+            None,
+            None,
         )
         .unwrap();
     }

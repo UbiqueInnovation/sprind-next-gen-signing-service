@@ -120,6 +120,10 @@ fn create_proof<R: RngCore>(
             bases_y.clone(),
             commitment_y,
         ));
+        statements.add(StatementProver::new_statement_from_params(
+            params.get(0).unwrap().clone(),
+            revealed_messages.clone(),
+        ));
 
         let ped_params_x = PairingPedersenParams::<Bls12_381>::new_with_params(
             bases_x[0].into_group(),
@@ -136,6 +140,9 @@ fn create_proof<R: RngCore>(
         ));
         meta_statements.add_witness_equality(EqualWitnesses(
             vec![(0, 1), (2, 0)].into_iter().collect::<_>(),
+        ));
+        meta_statements.add_witness_equality(EqualWitnesses(
+            vec![(0, 3), (3, 3)].into_iter().collect::<_>(),
         ));
 
         use p256::ecdsa::signature::Signer;
@@ -168,6 +175,10 @@ fn create_proof<R: RngCore>(
         ));
         witnesses.add(Witness::PedersenCommitment(scalars_x.clone()));
         witnesses.add(Witness::PedersenCommitment(scalars_y.clone()));
+        witnesses.add(PoKBBSSignatureG1::new_as_witness(
+            signatures.get(0).unwrap().clone(),
+            unrevealed_messages.clone(),
+        ));
         witnesses
     };
 
@@ -205,8 +216,8 @@ fn verify_proof(
     statements.add(
         PoKBBSSignatureG1Verifier::<Bls12_381>::new_statement_from_params(
             SignatureParamsG1::new::<Blake2b512>(&nonce, message_count),
-            issuer_pk,
-            revealed_messages,
+            issuer_pk.clone(),
+            revealed_messages.clone(),
         ),
     );
     let bases_x = vec![
@@ -225,12 +236,23 @@ fn verify_proof(
     // add the statements about the public key commitment
     statements.add(PedersenCommitment::new_statement_from_params(bases_y, cy));
 
+    statements.add(
+        PoKBBSSignatureG1Verifier::<Bls12_381>::new_statement_from_params(
+            SignatureParamsG1::new::<Blake2b512>(&nonce, message_count),
+            issuer_pk,
+            revealed_messages,
+        ),
+    );
+
     let mut meta_statements = MetaStatements::new();
     meta_statements.add_witness_equality(EqualWitnesses(
         vec![(0, 0), (1, 0)].into_iter().collect::<_>(),
     ));
     meta_statements.add_witness_equality(EqualWitnesses(
         vec![(0, 1), (2, 0)].into_iter().collect::<_>(),
+    ));
+    meta_statements.add_witness_equality(EqualWitnesses(
+        vec![(0, 3), (3, 3)].into_iter().collect::<_>(),
     ));
 
     let proof_spec = ProofSpec::new(statements, meta_statements, vec![], None);
@@ -283,6 +305,7 @@ pub fn bbs_device_binding_via_p256() -> anyhow::Result<()> {
             y,
             Fr::from(BigUint::from_bytes_le(b"message 2")),
             Fr::from(age),
+            Fr::from(1337u64),
         ];
 
         let message_count = messages.len() as u32;

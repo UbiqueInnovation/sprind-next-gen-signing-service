@@ -1,13 +1,23 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use crate::rdf::RdfQuery;
 
 use super::{Presentation, ProofRequirement};
 
+use ark_bls12_381::{Bls12_381, Config};
+use ark_ec::{bls12::Bls12, CurveGroup};
 use itertools::Itertools;
 use oxrdf::{GraphName, NamedNode, Term};
+use proof_system::prelude::{
+    ped_comm::PedersenCommitment, EqualWitnesses, MetaStatements, Statements,
+};
+use proves::{p256_arithmetic, tom256, DeviceBinding};
 use rand::RngCore;
 use serde_json::{json, Value as JsonValue};
+
+pub struct DeviceBindingVerification {
+    pub binding_string: String,
+}
 
 pub async fn verify<R: RngCore>(
     rng: &mut R,
@@ -17,6 +27,16 @@ pub async fn verify<R: RngCore>(
     reqs: &Vec<ProofRequirement>,
     issuer_id: &str,
     issuer_key_id: &str,
+    db: Option<(
+        DeviceBinding<
+            p256_arithmetic::ProjectivePoint,
+            32,
+            tom256::ProjectivePoint,
+            40,
+            Bls12<Config>,
+        >,
+        DeviceBindingVerification,
+    )>,
 ) -> JsonValue {
     let issuer = RdfQuery::from_jsonld(
         &json!(
@@ -44,6 +64,44 @@ pub async fn verify<R: RngCore>(
     .unwrap()
     .to_rdf_string();
 
+    let has_db = db.is_some();
+    let statements = if let Some((db, verification)) = db {
+        assert!(
+            db.verify(verification.binding_string.as_bytes().to_vec()),
+            "zk attest failed"
+        );
+
+        let bases_x = vec![
+            db.eq_x.g2_params.g.into_affine(),
+            db.eq_x.g2_params.h.into_affine(),
+        ];
+        let bases_y = vec![
+            db.eq_y.g2_params.g.into_affine(),
+            db.eq_y.g2_params.h.into_affine(),
+        ];
+        let cx = db.eq_x.c2.into_affine();
+        let cy = db.eq_y.c2.into_affine();
+
+        let mut statements = Statements::<Bls12_381>::new();
+
+        // add the statements about the public key commitment
+        statements.add(PedersenCommitment::new_statement_from_params(bases_x, cx));
+        // add the statements about the public key commitment
+        statements.add(PedersenCommitment::new_statement_from_params(bases_y, cy));
+
+        Some(statements)
+    } else {
+        None
+    };
+
+    let mut meta_statements = MetaStatements::new();
+
+    if has_db {
+        // TODO: Figure out why this doesn't work
+        meta_statements.add_witness_equality(EqualWitnesses(BTreeSet::from([(0, 32), (1, 0)])));
+        meta_statements.add_witness_equality(EqualWitnesses(BTreeSet::from([(0, 35), (2, 0)])));
+    }
+
     let success = rdf_proofs::verify_proof_string(
         rng,
         &pres.graph.to_rdf_string(),
@@ -51,6 +109,8 @@ pub async fn verify<R: RngCore>(
         None,
         None,
         Some(verifying_keys),
+        statements,
+        Some(meta_statements),
     );
 
     assert!(success.is_ok(), "{success:#?}");
@@ -150,6 +210,7 @@ pub async fn verify<R: RngCore>(
                         == blank_id
                 );
             }
+            ProofRequirement::DeviceBinding { .. } => {}
         }
     }
 
