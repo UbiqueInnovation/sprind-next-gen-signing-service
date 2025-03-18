@@ -151,7 +151,6 @@ pub async fn issue_with_device_binding<R: RngCore>(
                 "https://www.w3.org/ns/data-integrity/v1"
             ],
             "https://example.org/deviceBinding": {
-                "id": "test:device:binding",
                 "https://example.org/deviceBinding/x": {
                     "@value": x,
                     "@type": "http://www.w3.org/2001/XMLSchema#hexBinary",

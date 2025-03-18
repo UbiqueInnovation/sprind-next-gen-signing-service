@@ -1,6 +1,8 @@
 use ark_bls12_381::{Bls12_381, Fr};
 use bbs_plus::prelude::{SignatureG1, SignatureParamsG1};
-use next_gen_signatures::crypto::zkp::ProofRequirement;
+use next_gen_signatures::crypto::zkp::{
+    circuits::LESS_THAN_PUBLIC_ID, ProofRequirement, PublicValue,
+};
 use p256::ecdsa::SigningKey;
 use proof_system::prelude::{
     bbs_plus::PoKBBSSignatureG1Prover, bound_check_legogroth16::BoundCheckLegoGroth16Prover,
@@ -13,7 +15,6 @@ use proves::group::Group;
 use next_gen_signatures::crypto::zkp;
 use rdf_proofs::KeyPairBase58Btc;
 use serde_json::json;
-use serde_json::Value as JsonValue;
 
 pub type ScalarField = Fr;
 pub type Signature = SignatureG1<Bls12_381>;
@@ -26,18 +27,6 @@ const ISSUER_KEY_ID: &str = "did:example:issuer0#bls12_381-g2-pub001";
 
 const VC_VALIDITY_MONTHS: u32 = 36;
 
-pub fn get_sample_data() -> JsonValue {
-    json!({
-        "@type": "http://schema.org/Person",
-        "@id": "did:example:johndoe",
-        "http://schema.org/name": "John Doe",
-        "http://schema.org/birthDate": {
-            "@value": "1990-01-01T00:00:00Z",
-            "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
-        },
-        "http://schema.org/telephone": "(425) 123-4567",
-    })
-}
 pub fn get_issuer<R: RngCore>(rng: &mut R) -> (String, String) {
     let kp = KeyPairBase58Btc::new(rng).unwrap();
     (kp.public_key, kp.secret_key)
@@ -67,7 +56,16 @@ pub async fn device_binding_test() -> anyhow::Result<()> {
 
     let vc = zkp::issue_with_device_binding(
         &mut rng,
-        get_sample_data(),
+        json!({
+            "@type": "http://schema.org/Person",
+            "@id": "did:example:johndoe",
+            "http://schema.org/name": "John Doe",
+            "http://schema.org/birthDate": {
+                "@value": "1990-01-01T00:00:00Z",
+                "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "http://schema.org/telephone": "(425) 123-4567",
+        }),
         issuer_pk.clone(),
         issuer_sk,
         ISSUER_ID,
@@ -93,6 +91,17 @@ pub async fn device_binding_test() -> anyhow::Result<()> {
             binding_string: binding_string.clone(),
             x: x_bytes.to_vec(),
             y: y_bytes.to_vec(),
+        },
+        ProofRequirement::Circuit {
+            id: LESS_THAN_PUBLIC_ID.to_string(),
+            private_var: "a".to_string(),
+            private_key: "http://schema.org/birthDate".to_string(),
+
+            public_var: "b".to_string(),
+            public_val: PublicValue {
+                r#type: "http://www.w3.org/2001/XMLSchema#dateTime".to_string(),
+                value: "2000-01-01T00:00:00Z".to_string(),
+            },
         },
     ];
 
