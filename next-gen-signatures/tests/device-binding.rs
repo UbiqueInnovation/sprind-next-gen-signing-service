@@ -1,4 +1,5 @@
 use ark_bls12_381::{Bls12_381, Fr};
+use base64::{prelude::BASE64_STANDARD, Engine};
 use bbs_plus::prelude::{SignatureG1, SignatureParamsG1};
 use next_gen_signatures::crypto::zkp::{
     circuits::LESS_THAN_PUBLIC_ID, ProofRequirement, PublicValue,
@@ -50,7 +51,10 @@ pub async fn device_binding_test() -> anyhow::Result<()> {
     println!("bytes: {x_bytes:?} {y_bytes:?}");
 
     let binding_string = r#"{ "timestamp" : now(), "nonce" : "1234", "whatever"}"#.to_string();
-    let device_xy = (hex::encode(&x_bytes), hex::encode(y_bytes));
+    let device_xy = (
+        BASE64_STANDARD.encode(&x_bytes),
+        BASE64_STANDARD.encode(y_bytes),
+    );
 
     let (issuer_pk, issuer_sk) = get_issuer(&mut rng);
 

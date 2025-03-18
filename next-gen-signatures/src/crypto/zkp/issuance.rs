@@ -153,11 +153,11 @@ pub async fn issue_with_device_binding<R: RngCore>(
             "https://example.org/deviceBinding": {
                 "https://example.org/deviceBinding/x": {
                     "@value": x,
-                    "@type": "http://www.w3.org/2001/XMLSchema#hexBinary",
+                    "@type": "http://www.w3.org/2001/XMLSchema#base64Binary",
                 },
                 "https://example.org/deviceBinding/y": {
                     "@value": y,
-                    "@type": "http://www.w3.org/2001/XMLSchema#hexBinary",
+                    "@type": "http://www.w3.org/2001/XMLSchema#base64Binary",
                 },
             },
             "id": credential_id,
