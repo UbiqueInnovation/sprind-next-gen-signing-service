@@ -39,6 +39,16 @@
 
     exports.issuer_id = "did:example:issuer0"
     exports.issuer_key_id = encodeURIComponent("did:example:issuer0#bls12_381-g2-pub001")
+
+    exports.device_binding_x = "4XNv58dm64FJOFNIGZ4Er1uUrtdl3wy0JiW3QArKpSU="
+    exports.device_binding_y = "veEtb9WPBFlZeRjDRiG6eXxV60Pj80oCwMc8FtFjlqE=" 
+    exports.device_binding = base64url_encode(JSON.stringify({
+        "public_key": "BOFzb-fHZuuBSThTSBmeBK9blK7XZd8MtCYlt0AKyqUlveEtb9WPBFlZeRjDRiG6eXxV60Pj80oCwMc8FtFjlqE",
+        "signing_key": "yvQf3jD4yqcsXa0jPpXZo2fcJP7wxARsZ3IzgmaHMVI",
+        "binding_string": "test-123",
+        "x": "4XNv58dm64FJOFNIGZ4Er1uUrtdl3wy0JiW3QArKpSU",
+        "y": "veEtb9WPBFlZeRjDRiG6eXxV60Pj80oCwMc8FtFjlqE",
+    }))
 }}
 ###
 GET http://localhost:8000/zkp/keypair
@@ -53,6 +63,8 @@ POST http://localhost:8000/zkp/issue
     &issuer_sk={{issuer_sk}}
     &issuer_id={{issuer_id}}
     &issuer_key_id={{issuer_key_id}}
+    &device_binding_x={{device_binding_x}}
+    &device_binding_y={{device_binding_y}}
 
 {{data}}
 
@@ -76,6 +88,7 @@ POST http://localhost:8000/zkp/present
     ?issuer_pk={{issuer_pk}}
     &issuer_id={{issuer_id}}
     &issuer_key_id={{issuer_key_id}}
+    &device_binding={{device_binding}}
 
 {
     "credential": "{{credential}}",

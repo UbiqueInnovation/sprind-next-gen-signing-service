@@ -86,6 +86,7 @@ pub async fn jsonld_zkp_flow() {
         &mut rng,
         vc,
         &reqs,
+        None,
         &circuits.proving_keys,
         issuer_pk.clone(),
         ISSUER_ID,

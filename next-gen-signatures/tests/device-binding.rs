@@ -1,8 +1,11 @@
 use ark_bls12_381::{Bls12_381, Fr};
-use base64::{prelude::BASE64_STANDARD, Engine};
+use base64::{
+    prelude::{BASE64_STANDARD, BASE64_URL_SAFE_NO_PAD},
+    Engine,
+};
 use bbs_plus::prelude::{SignatureG1, SignatureParamsG1};
 use next_gen_signatures::crypto::zkp::{
-    circuits::LESS_THAN_PUBLIC_ID, ProofRequirement, PublicValue,
+    circuits::LESS_THAN_PUBLIC_ID, DeviceBindingRequirement, ProofRequirement, PublicValue,
 };
 use p256::ecdsa::SigningKey;
 use proof_system::prelude::{
@@ -48,8 +51,6 @@ pub async fn device_binding_test() -> anyhow::Result<()> {
     let x_bytes = pub_key_p.x().to_be_bytes();
     let y_bytes = pub_key_p.y().to_be_bytes();
 
-    println!("bytes: {x_bytes:?} {y_bytes:?}");
-
     let binding_string = r#"{ "timestamp" : now(), "nonce" : "1234", "whatever"}"#.to_string();
     let device_xy = (
         BASE64_STANDARD.encode(&x_bytes),
@@ -89,13 +90,6 @@ pub async fn device_binding_test() -> anyhow::Result<()> {
         ProofRequirement::Required {
             key: "http://schema.org/name".to_string(),
         },
-        ProofRequirement::DeviceBinding {
-            public_key: pub_key,
-            signing_key: signing_key.to_bytes().to_vec(),
-            binding_string: binding_string.clone(),
-            x: x_bytes.to_vec(),
-            y: y_bytes.to_vec(),
-        },
         ProofRequirement::Circuit {
             id: LESS_THAN_PUBLIC_ID.to_string(),
             private_var: "a".to_string(),
@@ -108,6 +102,13 @@ pub async fn device_binding_test() -> anyhow::Result<()> {
             },
         },
     ];
+    let db_req = DeviceBindingRequirement {
+        public_key: pub_key,
+        signing_key: signing_key.to_bytes().to_vec(),
+        binding_string: binding_string.clone(),
+        x: x_bytes.to_vec(),
+        y: y_bytes.to_vec(),
+    };
 
     let circuits = zkp::circuits::generate_circuits(&mut rng, &reqs);
 
@@ -115,6 +116,7 @@ pub async fn device_binding_test() -> anyhow::Result<()> {
         &mut rng,
         vc,
         &reqs,
+        Some(db_req),
         &circuits.proving_keys,
         issuer_pk.clone(),
         ISSUER_ID,

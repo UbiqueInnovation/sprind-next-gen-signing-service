@@ -13,8 +13,10 @@ use proof_system::prelude::{
 };
 use proves::{p256_arithmetic, tom256, DeviceBinding};
 use rand::RngCore;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DeviceBindingVerification {
     pub binding_string: String,
     pub x_index: usize,
@@ -213,7 +215,6 @@ pub async fn verify<R: RngCore>(
                         == blank_id
                 );
             }
-            ProofRequirement::DeviceBinding { .. } => {}
         }
     }
 

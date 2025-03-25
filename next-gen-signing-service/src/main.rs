@@ -78,7 +78,7 @@ mod zkp_routes {
     use std::collections::HashMap;
 
     use next_gen_signatures::{
-        crypto::zkp::{self, Circuits, ProofRequirement},
+        crypto::zkp::{self, Circuits, DeviceBindingRequirement, ProofRequirement},
         Engine, BASE64_URL_SAFE_NO_PAD,
     };
     use rand::rngs::OsRng;
@@ -101,7 +101,7 @@ mod zkp_routes {
     }
 
     #[post(
-        "/issue?<issuer_pk>&<issuer_sk>&<issuer_id>&<issuer_key_id>&<expiry_months>",
+        "/issue?<issuer_pk>&<issuer_sk>&<issuer_id>&<issuer_key_id>&<expiry_months>&<device_binding_x>&<device_binding_y>",
         data = "<data>"
     )]
     pub async fn issue(
@@ -111,6 +111,8 @@ mod zkp_routes {
         issuer_id: String,
         issuer_key_id: String,
         expiry_months: Option<u32>,
+        device_binding_x: Option<String>,
+        device_binding_y: Option<String>,
     ) -> Json<Value> {
         let mut rng = OsRng;
 
@@ -120,16 +122,32 @@ mod zkp_routes {
 
         let expiry_months = expiry_months.unwrap_or(36);
 
-        let credential = zkp::issue(
-            &mut rng,
-            data,
-            issuer_pk,
-            issuer_sk,
-            &issuer_id,
-            &issuer_key_id,
-            expiry_months,
-        )
-        .await;
+        let credential = if let (Some(device_binding_x), Some(device_binding_y)) =
+            (device_binding_x, device_binding_y)
+        {
+            zkp::issue_with_device_binding(
+                &mut rng,
+                data,
+                issuer_pk,
+                issuer_sk,
+                &issuer_id,
+                &issuer_key_id,
+                expiry_months,
+                (device_binding_x, device_binding_y),
+            )
+            .await
+        } else {
+            zkp::issue(
+                &mut rng,
+                data,
+                issuer_pk,
+                issuer_sk,
+                &issuer_id,
+                &issuer_key_id,
+                expiry_months,
+            )
+            .await
+        };
 
         Json(credential.serialize())
     }
@@ -149,12 +167,16 @@ mod zkp_routes {
         Json(circuits)
     }
 
-    #[post("/present?<issuer_pk>&<issuer_id>&<issuer_key_id>", data = "<data>")]
+    #[post(
+        "/present?<issuer_pk>&<issuer_id>&<issuer_key_id>&<device_binding>",
+        data = "<data>"
+    )]
     pub async fn present(
         data: Json<Value>,
         issuer_pk: String,
         issuer_id: String,
         issuer_key_id: String,
+        device_binding: Option<String>,
     ) -> Json<Value> {
         let mut rng = OsRng;
 
@@ -176,10 +198,19 @@ mod zkp_routes {
             serde_json::from_str::<HashMap<String, String>>(&str).unwrap()
         };
 
-        let (pres, _db) = zkp::present(
+        let device_binding = if let Some(device_binding) = device_binding {
+            let bytes = BASE64_URL_SAFE_NO_PAD.decode(device_binding).unwrap();
+            let str = String::from_utf8(bytes).unwrap();
+            Some(serde_json::from_str::<DeviceBindingRequirement>(&str).unwrap())
+        } else {
+            None
+        };
+
+        let (pres, db_ver) = zkp::present(
             &mut rng,
             credential,
             &reqs,
+            device_binding,
             &proving_keys,
             issuer_pk,
             &issuer_id,
@@ -187,11 +218,25 @@ mod zkp_routes {
         )
         .await;
 
-        // TODO: Do something with the device binding
-
-        Json(json!({
+        let mut resp = json!({
             "proof": pres.serialize(),
-        }))
+        });
+
+        if let Some((db, ver)) = db_ver {
+            let (zk_attest, eq_x, eq_y) = db.serialize();
+            let zk_attest = BASE64_URL_SAFE_NO_PAD.encode(zk_attest);
+            let eq_x = BASE64_URL_SAFE_NO_PAD.encode(eq_x);
+            let eq_y = BASE64_URL_SAFE_NO_PAD.encode(eq_y);
+
+            resp["device_binding"] = json!({
+                "zkAttest": zk_attest,
+                "eqX": eq_x,
+                "eqY": eq_y,
+                "verification": ver
+            })
+        }
+
+        Json(resp)
     }
 
     #[post(
@@ -207,6 +252,12 @@ mod zkp_routes {
         issuer_key_id: String,
     ) -> Json<Value> {
         let mut rng = OsRng;
+
+        let body = serde_json::from_str::<serde_json::Value>(&proof).unwrap();
+
+        let zk_attest = body["zkAttest"].as_str().unwrap();
+        let eq_x = body["eq_x"].as_str().unwrap();
+        let eq_y = body["eq_y"].as_str().unwrap();
 
         let pres = zkp::Presentation::deserialize(&proof);
 

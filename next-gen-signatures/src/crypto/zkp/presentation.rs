@@ -9,7 +9,10 @@ use p256::ecdsa::SigningKey;
 use proof_system::prelude::{
     ped_comm::PedersenCommitment, EqualWitnesses, MetaStatements, Statements, Witness, Witnesses,
 };
-use proves::{device_binding, dleq::PairingPedersenParams, p256_arithmetic, tom256, DeviceBinding};
+use proves::{
+    device_binding as create_device_binding, dleq::PairingPedersenParams, p256_arithmetic, tom256,
+    DeviceBinding,
+};
 use rand::RngCore;
 use rdf_proofs::VcPairString;
 use rdf_types::generator;
@@ -17,12 +20,16 @@ use serde_json::{json, Value as JsonValue};
 
 use crate::rdf::RdfQuery;
 
-use super::{load_circuits, Credential, DeviceBindingVerification, Presentation, ProofRequirement};
+use super::{
+    load_circuits, Credential, DeviceBindingRequirement, DeviceBindingVerification, Presentation,
+    ProofRequirement,
+};
 
 pub async fn present<R: RngCore>(
     rng: &mut R,
     vc: Credential,
     reqs: &Vec<ProofRequirement>,
+    device_binding: Option<DeviceBindingRequirement>,
     proving_keys: &HashMap<String, String>,
     issuer_pk: String,
     issuer_id: &str,
@@ -94,15 +101,105 @@ pub async fn present<R: RngCore>(
     let mut meta_statements = MetaStatements::new();
     let mut witnesses = Witnesses::new();
 
-    let mut db = None;
-
     let canonical_doc = rdf_proofs::signature::transform(
         &RdfQuery::new(&vc.rdf_doc)
             .unwrap()
             .as_graph(GraphName::DefaultGraph),
     )
     .unwrap();
-    println!("canonical_doc: {:#?}", canonical_doc);
+
+    let db = if let Some(req) = device_binding {
+        let x = Fr::from(BigUint::from_bytes_be(&req.x));
+        let y = Fr::from(BigUint::from_bytes_be(&req.y));
+        let bases_x = (0..2)
+            .map(|_| G1Projective::rand(rng).into_affine())
+            .collect::<Vec<_>>();
+        let bases_y = (0..2)
+            .map(|_| G1Projective::rand(rng).into_affine())
+            .collect::<Vec<_>>();
+        let scalars_x = vec![x, Fr::rand(rng)];
+        let scalars_y = vec![y, Fr::rand(rng)];
+
+        let commitment_x = G1Projective::msm_unchecked(&bases_x, &scalars_x).into_affine();
+        let commitment_y = G1Projective::msm_unchecked(&bases_y, &scalars_y).into_affine();
+
+        statements.add(PedersenCommitment::new_statement_from_params(
+            bases_x.clone(),
+            commitment_x,
+        ));
+
+        statements.add(PedersenCommitment::new_statement_from_params(
+            bases_y.clone(),
+            commitment_y,
+        ));
+
+        let x_index = canonical_doc
+            .iter()
+            .position(|t| {
+                t == &Term::NamedNode(NamedNode::new_unchecked(
+                    "https://example.org/deviceBinding/x",
+                ))
+            })
+            .unwrap()
+            + 2;
+        let y_index = canonical_doc
+            .iter()
+            .position(|t| {
+                t == &Term::NamedNode(NamedNode::new_unchecked(
+                    "https://example.org/deviceBinding/y",
+                ))
+            })
+            .unwrap()
+            + 2;
+
+        println!("indices: {x_index} {y_index}");
+        println!("{:#?}", canonical_doc[x_index]);
+
+        meta_statements
+            .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, x_index), (1, 0)])));
+        meta_statements
+            .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, y_index), (2, 0)])));
+
+        witnesses.add(Witness::PedersenCommitment(scalars_x.clone()));
+        witnesses.add(Witness::PedersenCommitment(scalars_y.clone()));
+
+        let ped_params_x = PairingPedersenParams::<Bls12_381>::new_with_params(
+            bases_x[0].into_group(),
+            bases_x[1].into_group(),
+        );
+        let bbs_x = ped_params_x.commit_with_blinding(scalars_x[0], scalars_x[1]);
+        let ped_params_y = PairingPedersenParams::<Bls12_381>::new_with_params(
+            bases_y[0].into_group(),
+            bases_y[1].into_group(),
+        );
+        let bbs_y = ped_params_y.commit_with_blinding(scalars_y[0], scalars_y[1]);
+
+        use p256::ecdsa::signature::Signer;
+        let signing_key = SigningKey::from_bytes(req.signing_key.as_slice().into()).unwrap();
+        let signature: p256::ecdsa::Signature = signing_key.sign(req.binding_string.as_bytes());
+        let signature: Vec<u8> = signature.to_vec();
+
+        let verification = DeviceBindingVerification {
+            binding_string: req.binding_string.clone(),
+            x_index,
+            y_index,
+        };
+
+        Some((
+            create_device_binding(
+                signature,
+                req.public_key.clone(),
+                req.binding_string.as_bytes().to_vec(),
+                bbs_x,
+                ped_params_x,
+                bbs_y,
+                ped_params_y,
+            ),
+            verification,
+        ))
+    } else {
+        None
+    };
 
     for req in reqs {
         match req {
@@ -169,105 +266,6 @@ pub async fn present<R: RngCore>(
                 predicates.push(predicate);
 
                 subject.insert(key.clone(), json!({ "@id": blank }));
-            }
-            ProofRequirement::DeviceBinding {
-                signing_key,
-                public_key,
-                binding_string,
-                x,
-                y,
-            } => {
-                println!("bytes2: {x:?}, {y:?}");
-
-                println!("x-value: {}", BigUint::from_bytes_be(&x));
-                let x = Fr::from(BigUint::from_bytes_be(&x));
-                let y = Fr::from(BigUint::from_bytes_be(&y));
-                let bases_x = (0..2)
-                    .map(|_| G1Projective::rand(rng).into_affine())
-                    .collect::<Vec<_>>();
-                let bases_y = (0..2)
-                    .map(|_| G1Projective::rand(rng).into_affine())
-                    .collect::<Vec<_>>();
-                let scalars_x = vec![x, Fr::rand(rng)];
-                let scalars_y = vec![y, Fr::rand(rng)];
-
-                let commitment_x = G1Projective::msm_unchecked(&bases_x, &scalars_x).into_affine();
-                let commitment_y = G1Projective::msm_unchecked(&bases_y, &scalars_y).into_affine();
-
-                statements.add(PedersenCommitment::new_statement_from_params(
-                    bases_x.clone(),
-                    commitment_x,
-                ));
-
-                statements.add(PedersenCommitment::new_statement_from_params(
-                    bases_y.clone(),
-                    commitment_y,
-                ));
-
-                let x_index = canonical_doc
-                    .iter()
-                    .position(|t| {
-                        t == &Term::NamedNode(NamedNode::new_unchecked(
-                            "https://example.org/deviceBinding/x",
-                        ))
-                    })
-                    .unwrap()
-                    + 2;
-                let y_index = canonical_doc
-                    .iter()
-                    .position(|t| {
-                        t == &Term::NamedNode(NamedNode::new_unchecked(
-                            "https://example.org/deviceBinding/y",
-                        ))
-                    })
-                    .unwrap()
-                    + 2;
-
-                println!("indices: {x_index} {y_index}");
-                println!("{:#?}", canonical_doc[x_index]);
-
-                meta_statements
-                    .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, x_index), (1, 0)])));
-                meta_statements
-                    .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, y_index), (2, 0)])));
-
-                witnesses.add(Witness::PedersenCommitment(scalars_x.clone()));
-                witnesses.add(Witness::PedersenCommitment(scalars_y.clone()));
-
-                let ped_params_x = PairingPedersenParams::<Bls12_381>::new_with_params(
-                    bases_x[0].into_group(),
-                    bases_x[1].into_group(),
-                );
-                let bbs_x = ped_params_x.commit_with_blinding(scalars_x[0], scalars_x[1]);
-                let ped_params_y = PairingPedersenParams::<Bls12_381>::new_with_params(
-                    bases_y[0].into_group(),
-                    bases_y[1].into_group(),
-                );
-                let bbs_y = ped_params_y.commit_with_blinding(scalars_y[0], scalars_y[1]);
-
-                use p256::ecdsa::signature::Signer;
-                let signing_key = SigningKey::from_bytes(signing_key.as_slice().into()).unwrap();
-                let signature: p256::ecdsa::Signature = signing_key.sign(binding_string.as_bytes());
-                let signature: Vec<u8> = signature.to_vec();
-
-                let verification = DeviceBindingVerification {
-                    binding_string: binding_string.clone(),
-                    x_index,
-                    y_index,
-                };
-
-                db = Some((
-                    device_binding(
-                        signature,
-                        public_key.clone(),
-                        binding_string.as_bytes().to_vec(),
-                        bbs_x,
-                        ped_params_x,
-                        bbs_y,
-                        ped_params_y,
-                    ),
-                    verification,
-                ));
             }
         }
     }

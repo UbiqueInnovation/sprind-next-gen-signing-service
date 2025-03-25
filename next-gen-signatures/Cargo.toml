@@ -79,7 +79,7 @@ rdf-canon = { version = "0.15.0", optional = true }
 chrono = { version = "0.4.38", optional = true }
 itertools = { version = "0.13.0", optional = true }
 p256 = "0.13.2"
-proves = { git = "https://github.com/UbiqueInnovation/zkattest-rs.git" }
+proves = { path = "../../zkattest-rs/proves" }
 hex = "0.4.3"
 
 [target.'cfg(any(target_os = "android"))'.dependencies]

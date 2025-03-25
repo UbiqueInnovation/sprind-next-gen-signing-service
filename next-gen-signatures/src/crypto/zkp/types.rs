@@ -137,13 +137,37 @@ pub enum ProofRequirement {
         public_var: String,
         public_val: PublicValue,
     },
-    DeviceBinding {
-        public_key: Vec<u8>,
-        signing_key: Vec<u8>,
+}
 
-        binding_string: String,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeviceBindingRequirement {
+    #[serde(with = "serde_base64")]
+    pub public_key: Vec<u8>,
+    #[serde(with = "serde_base64")]
+    pub signing_key: Vec<u8>,
 
-        x: Vec<u8>,
-        y: Vec<u8>,
-    },
+    pub binding_string: String,
+
+    #[serde(with = "serde_base64")]
+    pub x: Vec<u8>,
+    #[serde(with = "serde_base64")]
+    pub y: Vec<u8>,
+}
+
+mod serde_base64 {
+    use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine};
+    use serde::{Deserialize, Serialize};
+    use serde::{Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(v: &Vec<u8>, s: S) -> Result<S::Ok, S::Error> {
+        let base64 = BASE64_URL_SAFE_NO_PAD.encode(v);
+        String::serialize(&base64, s)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
+        let base64 = String::deserialize(d)?;
+        BASE64_URL_SAFE_NO_PAD
+            .decode(base64.as_bytes())
+            .map_err(|e| serde::de::Error::custom(e))
+    }
 }
