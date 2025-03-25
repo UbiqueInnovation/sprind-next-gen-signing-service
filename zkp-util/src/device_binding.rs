@@ -2,8 +2,7 @@ use anyhow::{anyhow, Context};
 use ark_bls12_381::Fr as BlsFr;
 use ark_bls12_381::G1Affine as BlsG1Affine;
 use ark_ec::AffineRepr;
-use ark_secp256r1::Affine as SecpAffine;
-use ark_secp256r1::{Fq, Fr as SecpFr};
+use ark_secp256r1::Fq;
 use ark_std::UniformRand;
 use blake2::Blake2b512;
 use bulletproofs_plus_plus::prelude::SetupParams as BppSetupParams;
@@ -32,6 +31,13 @@ const ABORT_PARAM: usize = 8;
 const RESPONSE_BYTE_SIZE: usize = 32;
 const NUM_REPS: usize = 1;
 const NUM_CHUNKS: usize = 4;
+
+pub const DEVICE_BINDING_KEY: &str = "https://zkp-ld.org/deviceBinding";
+pub const DEVICE_BINDING_KEY_X: &str = "https://zkp-ld.org/deviceBinding#x";
+pub const DEVICE_BINDING_KEY_Y: &str = "https://zkp-ld.org/deviceBinding#y";
+
+pub type SecpFr = ark_secp256r1::Fr;
+pub type SecpAffine = ark_secp256r1::Affine;
 
 type PedersenCommitmentKeySecp = PedersenCommitmentKey<SecpAffine>;
 type PedersenCommitmentKeyTom = PedersenCommitmentKey<Tom256Affine>;

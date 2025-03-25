@@ -5,7 +5,7 @@ use rand_core::RngCore;
 use rdf_proofs::{ark_to_base64url, CircuitString};
 use std::{collections::HashMap, io::Cursor};
 
-use crate::vc::ProofRequirement;
+use crate::vc::requirements::ProofRequirement;
 
 type R1CS = R1CSOrig<Bls12_381>;
 
