@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, time::SystemTime};
 use anyhow::Context;
 use chrono::{DateTime, Months, Utc};
 use rand_core::RngCore;
-use rdf_proofs::{vocab::BASE_64_BYTES_BE, VerifiableCredential};
+use rdf_proofs::{vocab::BASE_64_BYTES_LE, VerifiableCredential};
 use rdf_util::{
     oxrdf::{NamedNode, Subject},
     ObjectId, Value as RdfValue,
@@ -71,11 +71,11 @@ pub fn issue<R: RngCore>(
             BTreeMap::from([
                 (
                     DEVICE_BINDING_KEY_X.into(),
-                    RdfValue::Typed(x, BASE_64_BYTES_BE.into()),
+                    RdfValue::Typed(x, BASE_64_BYTES_LE.into()),
                 ),
                 (
                     DEVICE_BINDING_KEY_Y.into(),
-                    RdfValue::Typed(y, BASE_64_BYTES_BE.into()),
+                    RdfValue::Typed(y, BASE_64_BYTES_LE.into()),
                 ),
             ]),
             ObjectId::None,

@@ -1,10 +1,19 @@
+use anyhow::Context;
 use ark_bls12_381::Bls12_381;
-use proof_system::prelude::r1cs_legogroth16::VerifyingKey;
+use proof_system::prelude::{
+    ped_comm::PedersenCommitment, r1cs_legogroth16::VerifyingKey, EqualWitnesses, MetaStatements,
+    Statements,
+};
 use rand_core::RngCore;
 use rdf_proofs::KeyGraph;
-use rdf_util::oxrdf::{GraphName, NamedNode, Subject};
+use rdf_util::{
+    oxrdf::{BlankNode, GraphName, Literal, NamedNode, Subject, Term, Triple},
+    ObjectId, Value as RdfValue,
+};
 use serde_json::Value as JsonValue;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
+
+use crate::device_binding::{DEVICE_BINDING_KEY, DEVICE_BINDING_KEY_X, DEVICE_BINDING_KEY_Y};
 
 use super::{
     presentation::VerifiablePresentation,
@@ -22,22 +31,105 @@ pub fn verify<R: RngCore>(
     issuer_id: &str,
     issuer_key_id: &str,
 ) -> anyhow::Result<JsonValue> {
-    let issuer = KeyGraph::from(rdf_util::from_str_with_hint(format!(
-        r#"
-            <{issuer_id}> <https://w3id.org/security#verificationMethod> <{issuer_key_id}> .
-            <{issuer_key_id}> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/security#Multikey> .
-            <{issuer_key_id}> <https://w3id.org/security#controller> <{issuer_id}> .
-            <{issuer_key_id}> <https://w3id.org/security#publicKeyMultibase> "{issuer_pk}"^^<https://w3id.org/security#multibase> .
-        "#
-    ), Subject::NamedNode(NamedNode::new_unchecked(issuer_id)))?.to_graph(None));
-
     let verifying_keys = HashMap::<NamedNode, VerifyingKey<Bls12_381>>::new();
 
+    let credential = presentation.proof.to_value(GraphName::DefaultGraph)
+        ["https://www.w3.org/2018/credentials#verifiableCredential"]
+        .clone();
+
     // Verify the device binding
+    let mut statements = Statements::new();
+    let mut meta_statements = MetaStatements::new();
+
     if let Some(db) = presentation.device_binding {
         let Some(params) = device_binding else {
             anyhow::bail!("Device binding verification params expected!")
         };
+
+        // add the statements about the public key commitment
+        statements.add(PedersenCommitment::new_statement_from_params(
+            db.bls_comm_key.clone(),
+            db.bls_comm_pk_x,
+        ));
+        // add the statements about the public key commitment
+        statements.add(PedersenCommitment::new_statement_from_params(
+            db.bls_comm_key.clone(),
+            db.bls_comm_pk_y,
+        ));
+
+        let terms = rdf_proofs::signature::transform(&credential.to_graph(None))?;
+        let x_key_term = Term::NamedNode(NamedNode::new_unchecked(DEVICE_BINDING_KEY_X));
+        let x_index = terms.iter().position(|t| t == &x_key_term).unwrap() + 2;
+        let y_key_term = Term::NamedNode(NamedNode::new_unchecked(DEVICE_BINDING_KEY_Y));
+        let y_index = terms.iter().position(|t| t == &y_key_term).unwrap() + 2;
+
+        // let (db_map, db_id) = credential[DEVICE_BINDING_KEY]
+        //     .as_object()
+        //     .context("verifiable credential has no device_binding")?;
+
+        // anyhow::ensure!(
+        //     !matches!(db_id, ObjectId::None),
+        //     "device binding object id can't be none!"
+        // );
+        // let x_value = db_map
+        //     .get(DEVICE_BINDING_KEY_X)
+        //     .context("device binding has no x value")?;
+        // let y_value = db_map
+        //     .get(DEVICE_BINDING_KEY_Y)
+        //     .context("device binding has no x value")?;
+
+        // let x_triple = Triple::new(
+        //     match db_id {
+        //         ObjectId::BlankNode(b) => Subject::BlankNode(BlankNode::new_unchecked(b)),
+        //         ObjectId::NamedNode(n) => Subject::NamedNode(NamedNode::new_unchecked(n)),
+        //         ObjectId::None => unreachable!(),
+        //     },
+        //     NamedNode::new_unchecked(DEVICE_BINDING_KEY_X),
+        //     Term::Literal(match x_value {
+        //         RdfValue::Typed(v, t) => Literal::new_typed_literal(v, NamedNode::new_unchecked(t)),
+        //         _ => anyhow::bail!("Invalid device_binding x value: {x_value:#?}"),
+        //     }),
+        // );
+        // let y_triple = Triple::new(
+        //     match db_id {
+        //         ObjectId::BlankNode(b) => Subject::BlankNode(BlankNode::new_unchecked(b)),
+        //         ObjectId::NamedNode(n) => Subject::NamedNode(NamedNode::new_unchecked(n)),
+        //         ObjectId::None => unreachable!(),
+        //     },
+        //     NamedNode::new_unchecked(DEVICE_BINDING_KEY_Y),
+        //     Term::Literal(match y_value {
+        //         RdfValue::Typed(v, t) => Literal::new_typed_literal(v, NamedNode::new_unchecked(t)),
+        //         _ => anyhow::bail!("Invalid device_binding y value: {y_value:#?}"),
+        //     }),
+        // );
+        // anyhow::ensure!(
+        //     canonical_triples.contains(&x_triple),
+        //     "canonical triples doesn't contain x triple"
+        // );
+        // anyhow::ensure!(
+        //     canonical_triples.contains(&y_triple),
+        //     "canonical triples doesn't contain y triple"
+        // );
+
+        // let x_index = canonical_triples
+        //     .iter()
+        //     .position(|t| t == &x_triple)
+        //     .unwrap()
+        //     * 3 // every triple contains 3 messages
+        //     + 2 // index 2 is the object (value)
+        //     + 1; // there is a boundary (see rdf-proofs/src/signature.rs:107)
+        // let y_index = canonical_triples
+        //     .iter()
+        //     .position(|t| t == &y_triple)
+        //     .unwrap()
+        //     * 3 // every triple contains 3 messages
+        //     + 2 // index 2 is the object (value)
+        //     + 1; // there is a boundary (see rdf-proofs/src/signature.rs:107)
+
+        // TODO: Find out x and y index of the document in canonical form
+        println!("xy2: {x_index} {y_index}");
+        meta_statements.add_witness_equality(EqualWitnesses(BTreeSet::from([(0, 21), (1, 0)])));
+        meta_statements.add_witness_equality(EqualWitnesses(BTreeSet::from([(0, 24), (2, 0)])));
 
         db.verify(
             rng,
@@ -51,6 +143,15 @@ pub fn verify<R: RngCore>(
         )?;
     }
 
+    let issuer = KeyGraph::from(rdf_util::from_str_with_hint(format!(
+        r#"
+            <{issuer_id}> <https://w3id.org/security#verificationMethod> <{issuer_key_id}> .
+            <{issuer_key_id}> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/security#Multikey> .
+            <{issuer_key_id}> <https://w3id.org/security#controller> <{issuer_id}> .
+            <{issuer_key_id}> <https://w3id.org/security#publicKeyMultibase> "{issuer_pk}"^^<https://w3id.org/security#multibase> .
+        "#
+    ), Subject::NamedNode(NamedNode::new_unchecked(issuer_id)))?.to_graph(None));
+
     let success = rdf_proofs::verify_proof(
         rng,
         &presentation.proof.dataset(),
@@ -58,16 +159,13 @@ pub fn verify<R: RngCore>(
         None,
         None,
         verifying_keys,
-        None,
-        None,
+        Some(statements),
+        Some(meta_statements),
     );
 
     assert!(success.is_ok(), "{success:#?}");
 
-    let body = presentation.proof.to_value(GraphName::DefaultGraph)
-        ["https://www.w3.org/2018/credentials#verifiableCredential"]
-        ["https://www.w3.org/2018/credentials#credentialSubject"]
-        .to_json();
+    let body = credential["https://www.w3.org/2018/credentials#credentialSubject"].to_json();
 
     // Make sure the claims were reveiled
     for requirement in requirements {

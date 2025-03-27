@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Context};
-use ark_bls12_381::Fr as BlsFr;
 use ark_bls12_381::G1Affine as BlsG1Affine;
 use ark_ec::AffineRepr;
 use ark_secp256r1::Fq;
@@ -38,6 +37,7 @@ pub const DEVICE_BINDING_KEY_Y: &str = "https://zkp-ld.org/deviceBinding#y";
 
 pub type SecpFr = ark_secp256r1::Fr;
 pub type SecpAffine = ark_secp256r1::Affine;
+pub type BlsFr = ark_bls12_381::Fr;
 
 type PedersenCommitmentKeySecp = PedersenCommitmentKey<SecpAffine>;
 type PedersenCommitmentKeyTom = PedersenCommitmentKey<Tom256Affine>;
@@ -59,10 +59,17 @@ pub struct DeviceBinding {
     pub eq_x: ProofLargeWitness,
     pub eq_y: ProofLargeWitness,
 
-    // TODO: Figure out if this Information can be shared
-    pub comm_pk: PointCommitment<Tom256Affine>,
-    pub bls_comm_pk_x: BlsG1Affine,
-    pub bls_comm_pk_y: BlsG1Affine,
+    pub comm_pk: PointCommitment<Tom256Affine>, // TODO: Figure out if this Information can be shared
+
+    pub bls_comm_key: Vec<BlsG1Affine>,
+    pub bls_comm_pk_x: BlsG1Affine, // TODO: Figure out if this is allowed to be shared
+    pub bls_comm_pk_y: BlsG1Affine, // TODO: Figure out if this is allowed to be shared
+
+    // This information here is just to be accessed later
+    // WARNING: This definitely shouldn't be shared!
+    // TODO: Somehow remove this from here when refactoring this
+    pub bls_scalars_x: Vec<BlsFr>,
+    pub bls_scalars_y: Vec<BlsFr>,
 }
 
 impl DeviceBinding {
@@ -81,6 +88,8 @@ impl DeviceBinding {
         let comm_key_secp = PedersenCommitmentKeySecp::new::<Blake2b512>(comm_key_secp_label);
         let comm_key_tom = PedersenCommitmentKeyTom::new::<Blake2b512>(comm_key_tom_label);
         let comm_key_bls = PedersenCommitmentKeyBls::new::<Blake2b512>(comm_key_bls_label);
+
+        let bls_comm_key = vec![comm_key_bls.g, comm_key_bls.h];
 
         let base = 2;
         let mut bpp_setup_params =
@@ -113,6 +122,8 @@ impl DeviceBinding {
         let bls_comm_pk_ry = BlsFr::rand(rng);
         let bls_comm_pk_x = comm_key_bls.commit(&pk_x, &bls_comm_pk_rx);
         let bls_comm_pk_y = comm_key_bls.commit(&pk_y, &bls_comm_pk_ry);
+        let bls_scalars_x = vec![pk_x, bls_comm_pk_rx];
+        let bls_scalars_y = vec![pk_y, bls_comm_pk_ry];
 
         let transformed_sig =
             TransformedEcdsaSig::new(&message_signature, message, public_key).unwrap();
@@ -179,8 +190,11 @@ impl DeviceBinding {
             eq_x: proof_eq_pk_x,
             eq_y: proof_eq_pk_y,
             comm_pk: comm_pk.comm,
+            bls_comm_key,
             bls_comm_pk_x,
             bls_comm_pk_y,
+            bls_scalars_x,
+            bls_scalars_y,
         })
     }
 

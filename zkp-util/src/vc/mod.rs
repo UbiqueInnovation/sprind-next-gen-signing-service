@@ -1,3 +1,11 @@
+use std::str::FromStr;
+
+use ark_secp256r1::Fq;
+use chrono::DateTime;
+use equality_across_groups::ec::commitments::from_base_field_to_scalar_field;
+
+use crate::device_binding::BlsFr;
+
 pub mod issuance;
 pub mod presentation;
 pub mod requirements;
@@ -6,8 +14,11 @@ pub mod verification;
 #[test]
 pub fn test_roundtrip() {
     use crate::{device_binding::SecpFr, SECP_GEN};
+    use ark_ec::AffineRepr;
     use ark_ec::CurveGroup;
+    use ark_ff::{biginteger::BigInteger, PrimeField};
     use ark_std::UniformRand;
+    use base64::{prelude::BASE64_STANDARD, Engine};
     use issuance::issue;
     use kvac::bbs_sharp::ecdsa;
     use presentation::present;
@@ -37,29 +48,23 @@ pub fn test_roundtrip() {
         ObjectId::None,
     );
 
-    let vc = issue(
-        &mut rng,
-        claims,
-        ISSUER_PK,
-        ISSUER_SK,
-        ISSUER_ID,
-        ISSUER_KEY_ID,
-        None,
-        None,
-        None,
-        None,
-    )
-    .unwrap();
-
-    println!("{}", vc.to_string());
-
-    let requirements = vec![requirements::ProofRequirement::Required {
-        key: "https://schema.org/name".into(),
-    }];
-
     // Device binding
     let secret_key = SecpFr::rand(&mut rng);
     let public_key = (SECP_GEN * secret_key).into_affine();
+
+    let db = {
+        let x: BlsFr = from_base_field_to_scalar_field::<Fq, BlsFr>(public_key.x().unwrap());
+        let y: BlsFr = from_base_field_to_scalar_field::<Fq, BlsFr>(public_key.y().unwrap());
+
+        let x_bytes_le = x.into_bigint().to_bytes_le();
+        let y_bytes_le = y.into_bigint().to_bytes_le();
+
+        (
+            BASE64_STANDARD.encode(x_bytes_le),
+            BASE64_STANDARD.encode(y_bytes_le),
+        )
+    };
+
     let message = SecpFr::rand(&mut rng);
     let message_signature = ecdsa::Signature::new_prehashed(&mut rng, message, secret_key);
 
@@ -69,6 +74,26 @@ pub fn test_roundtrip() {
     let bpp_setup_label = b"bpp-setup";
     let merlin_transcript_label = b"transcript";
     let challenge_label = b"challenge";
+
+    let vc = issue(
+        &mut rng,
+        claims,
+        ISSUER_PK,
+        ISSUER_SK,
+        ISSUER_ID,
+        ISSUER_KEY_ID,
+        Some(DateTime::from_str("2020-01-01T00:00:00Z").unwrap()),
+        Some(DateTime::from_str("2025-01-01T00:00:00Z").unwrap()),
+        Some(DateTime::from_str("2030-01-01T00:00:00Z").unwrap()),
+        Some(db),
+    )
+    .unwrap();
+
+    println!("issuance done! {}", vc.to_string());
+
+    let requirements = vec![requirements::ProofRequirement::Required {
+        key: "https://schema.org/name".into(),
+    }];
 
     let db_requirement = DeviceBindingRequirement {
         public_key,

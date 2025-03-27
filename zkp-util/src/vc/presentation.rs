@@ -1,14 +1,20 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use anyhow::Context;
+use ark_bls12_381::Bls12_381;
+use proof_system::prelude::{
+    ped_comm::PedersenCommitment, EqualWitnesses, MetaStatements, Statements, Witness, Witnesses,
+};
 use rand_core::RngCore;
 use rdf_proofs::{Circuit, KeyGraph, VcPair, VerifiableCredential};
 use rdf_util::{
-    oxrdf::{Graph, NamedNode, NamedOrBlankNode, Subject, Term},
-    MultiGraph, Value as RdfValue,
+    oxrdf::{BlankNode, Graph, Literal, NamedNode, NamedOrBlankNode, Subject, Term, Triple},
+    MultiGraph, ObjectId, Value as RdfValue,
 };
 
-use crate::device_binding::{DeviceBinding, DEVICE_BINDING_KEY};
+use crate::device_binding::{
+    DeviceBinding, DEVICE_BINDING_KEY, DEVICE_BINDING_KEY_X, DEVICE_BINDING_KEY_Y,
+};
 
 use super::requirements::{DeviceBindingRequirement, ProofRequirement};
 
@@ -27,7 +33,7 @@ pub fn present<R: RngCore>(
     issuer_id: &str,
     issuer_key_id: &str,
 ) -> anyhow::Result<VerifiablePresentation> {
-    let deanon_map = HashMap::<NamedOrBlankNode, Term>::new();
+    let mut deanon_map = HashMap::<NamedOrBlankNode, Term>::new();
     let predicates = Vec::<Graph>::new();
     let circuits = HashMap::<NamedNode, Circuit>::new();
 
@@ -49,8 +55,19 @@ pub fn present<R: RngCore>(
         }
     }
 
+    let mut vp_document = vc_document.clone();
+
+    vp_document["https://www.w3.org/2018/credentials#credentialSubject"] =
+        RdfValue::Object(disclosed, id.clone());
+
+    // Handle device binding
+    let mut statements = Statements::<Bls12_381>::new();
+    let mut meta_statements = MetaStatements::new();
+    let mut witnesses = Witnesses::<Bls12_381>::new();
+    let partially_disclosed_terms = HashSet::<Triple>::new();
+
     let device_binding = if let Some(db_req) = device_binding {
-        Some(DeviceBinding::new(
+        let db = DeviceBinding::new(
             rng,
             db_req.public_key,
             db_req.message,
@@ -61,24 +78,149 @@ pub fn present<R: RngCore>(
             &db_req.bpp_setup_label,
             db_req.merlin_transcript_label,
             db_req.challenge_label,
-        )?)
+        )?;
+
+        statements.add(PedersenCommitment::new_statement_from_params(
+            db.bls_comm_key.clone(),
+            db.bls_comm_pk_x,
+        ));
+
+        statements.add(PedersenCommitment::new_statement_from_params(
+            db.bls_comm_key.clone(),
+            db.bls_comm_pk_y,
+        ));
+
+        witnesses.add(Witness::PedersenCommitment(db.bls_scalars_x.clone()));
+        witnesses.add(Witness::PedersenCommitment(db.bls_scalars_y.clone()));
+
+        // let canonical_triples = rdf_proofs::get_canonical(
+        //     &vec![VcPair::new(vc.clone(), vc.clone())],
+        //     &deanon_map,
+        //     None,
+        //     None,
+        //     None,
+        //     None,
+        //     None,
+        //     predicates.clone(),
+        // )?[0]
+        //     .document
+        //     .clone();
+        // let canonical_graph = RdfValue::from(canonical_triples.clone());
+        // println!("{}", canonical_graph.to_string());
+        let (db_map, db_id) = vc_document[DEVICE_BINDING_KEY]
+            .as_object()
+            .context("verifiable credential has no device_binding")?;
+
+        anyhow::ensure!(
+            !matches!(db_id, ObjectId::None),
+            "device binding object id can't be none!"
+        );
+        let x_value = db_map
+            .get(DEVICE_BINDING_KEY_X)
+            .context("device binding has no x value")?;
+        let y_value = db_map
+            .get(DEVICE_BINDING_KEY_Y)
+            .context("device binding has no x value")?;
+
+        let terms = rdf_proofs::signature::transform(&vc.document)?;
+        let x_term = terms
+            .iter()
+            .find(|t| match (t, x_value) {
+                (Term::Literal(l), RdfValue::Typed(v, t)) => {
+                    l.value() == v && l.datatype().as_str() == t
+                }
+                _ => false,
+            })
+            .unwrap();
+        let y_term = terms
+            .iter()
+            .find(|t| match (t, y_value) {
+                (Term::Literal(l), RdfValue::Typed(v, t)) => {
+                    l.value() == v && l.datatype().as_str() == t
+                }
+                _ => false,
+            })
+            .unwrap();
+        let x_index = terms.iter().position(|t| t == x_term).unwrap() + 1;
+        let y_index = terms.iter().position(|t| t == y_term).unwrap() + 1;
+
+        // let x_triple = Triple::new(
+        //     match db_id {
+        //         ObjectId::BlankNode(b) => Subject::BlankNode(BlankNode::new_unchecked(b)),
+        //         ObjectId::NamedNode(n) => Subject::NamedNode(NamedNode::new_unchecked(n)),
+        //         ObjectId::None => unreachable!(),
+        //     },
+        //     NamedNode::new_unchecked(DEVICE_BINDING_KEY_X),
+        //     Term::Literal(match x_value {
+        //         RdfValue::Typed(v, t) => Literal::new_typed_literal(v, NamedNode::new_unchecked(t)),
+        //         _ => anyhow::bail!("Invalid device_binding x value: {x_value:#?}"),
+        //     }),
+        // );
+        // let y_triple = Triple::new(
+        //     match db_id {
+        //         ObjectId::BlankNode(b) => Subject::BlankNode(BlankNode::new_unchecked(b)),
+        //         ObjectId::NamedNode(n) => Subject::NamedNode(NamedNode::new_unchecked(n)),
+        //         ObjectId::None => unreachable!(),
+        //     },
+        //     NamedNode::new_unchecked(DEVICE_BINDING_KEY_Y),
+        //     Term::Literal(match y_value {
+        //         RdfValue::Typed(v, t) => Literal::new_typed_literal(v, NamedNode::new_unchecked(t)),
+        //         _ => anyhow::bail!("Invalid device_binding y value: {y_value:#?}"),
+        //     }),
+        // );
+        // anyhow::ensure!(
+        //     canonical_triples.contains(&x_triple),
+        //     "canonical triples doesn't contain x triple"
+        // );
+        // anyhow::ensure!(
+        //     canonical_triples.contains(&y_triple),
+        //     "canonical triples doesn't contain y triple"
+        // );
+
+        // let x_index = canonical_triples
+        //     .iter()
+        //     .position(|t| t == &x_triple)
+        //     .unwrap()
+        //     * 3 // every triple contains 3 messages
+        //     + 2 // index 2 is the object (value)
+        //     + 1; // there is a boundary (see rdf-proofs/src/signature.rs:107)
+        // let y_index = canonical_triples
+        //     .iter()
+        //     .position(|t| t == &y_triple)
+        //     .unwrap()
+        //     * 3 // every triple contains 3 messages
+        //     + 2 // index 2 is the object (value)
+        //     + 1; // there is a boundary (see rdf-proofs/src/signature.rs:107)
+
+        println!("xy: {x_index} {y_index}");
+        println!("{} {}", terms[x_index - 1], terms[y_index - 1]);
+
+        // Remove the device binding object (don't disclose x,y)
+        // partially_disclosed_terms.insert(x_triple);
+        // partially_disclosed_terms.insert(y_triple);
+
+        meta_statements
+            .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, x_index), (1, 0)])));
+        meta_statements
+            .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, y_index), (2, 0)])));
+
+        vp_document[DEVICE_BINDING_KEY][DEVICE_BINDING_KEY_X] =
+            RdfValue::ObjectRef(ObjectId::BlankNode("d0".into()));
+        vp_document[DEVICE_BINDING_KEY][DEVICE_BINDING_KEY_Y] =
+            RdfValue::ObjectRef(ObjectId::BlankNode("d1".into()));
+        deanon_map.insert(
+            NamedOrBlankNode::BlankNode(BlankNode::new_unchecked("d0")),
+            x_term.clone(),
+        );
+        deanon_map.insert(
+            NamedOrBlankNode::BlankNode(BlankNode::new_unchecked("d1")),
+            y_term.clone(),
+        );
+
+        Some(db)
     } else {
         None
     };
-
-    let mut vp_document = vc_document.clone();
-
-    // Remove the device binding object (don't disclose x,y)
-    if device_binding.is_some() {
-        vp_document
-            .as_object_mut()
-            .unwrap()
-            .0
-            .remove(DEVICE_BINDING_KEY);
-    }
-
-    vp_document["https://www.w3.org/2018/credentials#credentialSubject"] =
-        RdfValue::Object(disclosed, id.clone());
 
     // Create the proof
     let issuer = KeyGraph::from(rdf_util::from_str_with_hint(format!(
@@ -110,9 +252,10 @@ pub fn present<R: RngCore>(
         None,
         predicates,
         circuits,
-        None,
-        None,
-        None,
+        Some(statements),
+        Some(meta_statements),
+        Some(witnesses),
+        Some(&partially_disclosed_terms),
     )?;
 
     Ok(VerifiablePresentation {
