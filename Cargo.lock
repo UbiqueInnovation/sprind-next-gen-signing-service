@@ -4536,6 +4536,7 @@ dependencies = [
  "blake2",
  "bulletproofs_plus_plus 0.8.0",
  "chrono",
+ "ciborium",
  "dock_crypto_utils 0.22.0",
  "equality_across_groups",
  "kvac 0.7.0",

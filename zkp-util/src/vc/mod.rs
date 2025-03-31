@@ -1,11 +1,4 @@
-use std::str::FromStr;
-
-use ark_secp256r1::Fq;
-use chrono::DateTime;
-use equality_across_groups::ec::commitments::from_base_field_to_scalar_field;
-
-use crate::device_binding::BlsFr;
-
+pub mod index;
 pub mod issuance;
 pub mod presentation;
 pub mod requirements;
@@ -13,18 +6,23 @@ pub mod verification;
 
 #[test]
 pub fn test_roundtrip() {
-    use crate::{device_binding::SecpFr, SECP_GEN};
-    use ark_ec::AffineRepr;
-    use ark_ec::CurveGroup;
+    use crate::{
+        device_binding::{BlsFr, SecpFr},
+        SECP_GEN,
+    };
+    use ark_ec::{AffineRepr, CurveGroup};
     use ark_ff::{biginteger::BigInteger, PrimeField};
+    use ark_secp256r1::Fq;
     use ark_std::UniformRand;
     use base64::{prelude::BASE64_STANDARD, Engine};
+    use chrono::DateTime;
+    use equality_across_groups::ec::commitments::from_base_field_to_scalar_field;
     use issuance::issue;
     use kvac::bbs_sharp::ecdsa;
     use presentation::present;
     use rdf_util::{ObjectId, Value as RdfValue};
     use requirements::{DeviceBindingRequirement, DeviceBindingVerificationParams};
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, str::FromStr};
     use verification::verify;
 
     let mut rng = rand_core::OsRng;

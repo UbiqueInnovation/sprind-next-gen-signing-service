@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use anyhow::Context;
 use ark_bls12_381::Bls12_381;
@@ -8,12 +8,15 @@ use proof_system::prelude::{
 use rand_core::RngCore;
 use rdf_proofs::{Circuit, KeyGraph, VcPair, VerifiableCredential};
 use rdf_util::{
-    oxrdf::{BlankNode, Graph, Literal, NamedNode, NamedOrBlankNode, Subject, Term, Triple},
+    oxrdf::{BlankNode, Graph, Literal, NamedNode, NamedOrBlankNode, Subject, Term},
     MultiGraph, ObjectId, Value as RdfValue,
 };
 
-use crate::device_binding::{
-    DeviceBinding, DEVICE_BINDING_KEY, DEVICE_BINDING_KEY_X, DEVICE_BINDING_KEY_Y,
+use crate::{
+    device_binding::{
+        DeviceBinding, DEVICE_BINDING_KEY, DEVICE_BINDING_KEY_X, DEVICE_BINDING_KEY_Y,
+    },
+    vc::index::index_of_vc,
 };
 
 use super::requirements::{DeviceBindingRequirement, ProofRequirement};
@@ -64,7 +67,6 @@ pub fn present<R: RngCore>(
     let mut statements = Statements::<Bls12_381>::new();
     let mut meta_statements = MetaStatements::new();
     let mut witnesses = Witnesses::<Bls12_381>::new();
-    let partially_disclosed_terms = HashSet::<Triple>::new();
 
     let device_binding = if let Some(db_req) = device_binding {
         let db = DeviceBinding::new(
@@ -115,89 +117,32 @@ pub fn present<R: RngCore>(
             !matches!(db_id, ObjectId::None),
             "device binding object id can't be none!"
         );
-        let x_value = db_map
+        let RdfValue::Typed(x_value, x_type) = db_map
             .get(DEVICE_BINDING_KEY_X)
-            .context("device binding has no x value")?;
-        let y_value = db_map
+            .context("device binding has no x value")?
+        else {
+            panic!("device binding invalid x value")
+        };
+        let x_term = Term::Literal(Literal::new_typed_literal(
+            x_value,
+            NamedNode::new_unchecked(x_type),
+        ));
+
+        let RdfValue::Typed(y_value, y_type) = db_map
             .get(DEVICE_BINDING_KEY_Y)
-            .context("device binding has no x value")?;
+            .context("device binding has no y value")?
+        else {
+            panic!("device binding invalid y value")
+        };
+        let y_term = Term::Literal(Literal::new_typed_literal(
+            y_value,
+            NamedNode::new_unchecked(y_type),
+        ));
 
-        let terms = rdf_proofs::signature::transform(&vc.document)?;
-        let x_term = terms
-            .iter()
-            .find(|t| match (t, x_value) {
-                (Term::Literal(l), RdfValue::Typed(v, t)) => {
-                    l.value() == v && l.datatype().as_str() == t
-                }
-                _ => false,
-            })
-            .unwrap();
-        let y_term = terms
-            .iter()
-            .find(|t| match (t, y_value) {
-                (Term::Literal(l), RdfValue::Typed(v, t)) => {
-                    l.value() == v && l.datatype().as_str() == t
-                }
-                _ => false,
-            })
-            .unwrap();
-        let x_index = terms.iter().position(|t| t == x_term).unwrap() + 1;
-        let y_index = terms.iter().position(|t| t == y_term).unwrap() + 1;
-
-        // let x_triple = Triple::new(
-        //     match db_id {
-        //         ObjectId::BlankNode(b) => Subject::BlankNode(BlankNode::new_unchecked(b)),
-        //         ObjectId::NamedNode(n) => Subject::NamedNode(NamedNode::new_unchecked(n)),
-        //         ObjectId::None => unreachable!(),
-        //     },
-        //     NamedNode::new_unchecked(DEVICE_BINDING_KEY_X),
-        //     Term::Literal(match x_value {
-        //         RdfValue::Typed(v, t) => Literal::new_typed_literal(v, NamedNode::new_unchecked(t)),
-        //         _ => anyhow::bail!("Invalid device_binding x value: {x_value:#?}"),
-        //     }),
-        // );
-        // let y_triple = Triple::new(
-        //     match db_id {
-        //         ObjectId::BlankNode(b) => Subject::BlankNode(BlankNode::new_unchecked(b)),
-        //         ObjectId::NamedNode(n) => Subject::NamedNode(NamedNode::new_unchecked(n)),
-        //         ObjectId::None => unreachable!(),
-        //     },
-        //     NamedNode::new_unchecked(DEVICE_BINDING_KEY_Y),
-        //     Term::Literal(match y_value {
-        //         RdfValue::Typed(v, t) => Literal::new_typed_literal(v, NamedNode::new_unchecked(t)),
-        //         _ => anyhow::bail!("Invalid device_binding y value: {y_value:#?}"),
-        //     }),
-        // );
-        // anyhow::ensure!(
-        //     canonical_triples.contains(&x_triple),
-        //     "canonical triples doesn't contain x triple"
-        // );
-        // anyhow::ensure!(
-        //     canonical_triples.contains(&y_triple),
-        //     "canonical triples doesn't contain y triple"
-        // );
-
-        // let x_index = canonical_triples
-        //     .iter()
-        //     .position(|t| t == &x_triple)
-        //     .unwrap()
-        //     * 3 // every triple contains 3 messages
-        //     + 2 // index 2 is the object (value)
-        //     + 1; // there is a boundary (see rdf-proofs/src/signature.rs:107)
-        // let y_index = canonical_triples
-        //     .iter()
-        //     .position(|t| t == &y_triple)
-        //     .unwrap()
-        //     * 3 // every triple contains 3 messages
-        //     + 2 // index 2 is the object (value)
-        //     + 1; // there is a boundary (see rdf-proofs/src/signature.rs:107)
+        let x_index = index_of_vc(&vc, &x_term);
+        let y_index = index_of_vc(&vc, &y_term);
 
         println!("xy: {x_index} {y_index}");
-        println!("{} {}", terms[x_index - 1], terms[y_index - 1]);
-
-        // Remove the device binding object (don't disclose x,y)
-        // partially_disclosed_terms.insert(x_triple);
-        // partially_disclosed_terms.insert(y_triple);
 
         meta_statements
             .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, x_index), (1, 0)])));
@@ -255,7 +200,7 @@ pub fn present<R: RngCore>(
         Some(statements),
         Some(meta_statements),
         Some(witnesses),
-        Some(&partially_disclosed_terms),
+        None,
     )?;
 
     Ok(VerifiablePresentation {

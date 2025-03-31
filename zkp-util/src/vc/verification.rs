@@ -13,7 +13,10 @@ use rdf_util::{
 use serde_json::Value as JsonValue;
 use std::collections::{BTreeSet, HashMap};
 
-use crate::device_binding::{DEVICE_BINDING_KEY, DEVICE_BINDING_KEY_X, DEVICE_BINDING_KEY_Y};
+use crate::{
+    device_binding::{DEVICE_BINDING_KEY, DEVICE_BINDING_KEY_X, DEVICE_BINDING_KEY_Y},
+    vc::index::index_of_vp,
+};
 
 use super::{
     presentation::VerifiablePresentation,
@@ -57,11 +60,11 @@ pub fn verify<R: RngCore>(
             db.bls_comm_pk_y,
         ));
 
-        let terms = rdf_proofs::signature::transform(&credential.to_graph(None))?;
-        let x_key_term = Term::NamedNode(NamedNode::new_unchecked(DEVICE_BINDING_KEY_X));
-        let x_index = terms.iter().position(|t| t == &x_key_term).unwrap() + 2;
-        let y_key_term = Term::NamedNode(NamedNode::new_unchecked(DEVICE_BINDING_KEY_Y));
-        let y_index = terms.iter().position(|t| t == &y_key_term).unwrap() + 2;
+        // let terms = rdf_proofs::signature::transform(&credential.to_graph(None))?;
+        // let x_key_term = Term::NamedNode(NamedNode::new_unchecked(DEVICE_BINDING_KEY_X));
+        // let x_index = terms.iter().position(|t| t == &x_key_term).unwrap() + 2;
+        // let y_key_term = Term::NamedNode(NamedNode::new_unchecked(DEVICE_BINDING_KEY_Y));
+        // let y_index = terms.iter().position(|t| t == &y_key_term).unwrap() + 2;
 
         // let (db_map, db_id) = credential[DEVICE_BINDING_KEY]
         //     .as_object()
@@ -127,9 +130,22 @@ pub fn verify<R: RngCore>(
         //     + 1; // there is a boundary (see rdf-proofs/src/signature.rs:107)
 
         // TODO: Find out x and y index of the document in canonical form
+        // println!("xy2: {x_index} {y_index}");
+
+        let x_index = index_of_vp(
+            &presentation.proof.dataset(),
+            &NamedNode::new_unchecked(DEVICE_BINDING_KEY_X),
+        ) + 1;
+        let y_index = index_of_vp(
+            &presentation.proof.dataset(),
+            &NamedNode::new_unchecked(DEVICE_BINDING_KEY_Y),
+        ) + 1;
         println!("xy2: {x_index} {y_index}");
-        meta_statements.add_witness_equality(EqualWitnesses(BTreeSet::from([(0, 21), (1, 0)])));
-        meta_statements.add_witness_equality(EqualWitnesses(BTreeSet::from([(0, 24), (2, 0)])));
+
+        meta_statements
+            .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, x_index), (1, 0)])));
+        meta_statements
+            .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, y_index), (2, 0)])));
 
         db.verify(
             rng,
