@@ -1,4 +1,5 @@
 use kvac::bbs_sharp::ecdsa;
+use rdf_util::Value as RdfValue;
 use serde::{Deserialize, Serialize};
 
 use crate::device_binding::{SecpAffine, SecpFr};
@@ -21,7 +22,7 @@ pub enum ProofRequirement {
         private_key: String,
 
         public_var: String,
-        public_val: PublicValue,
+        public_val: RdfValue,
     },
 }
 

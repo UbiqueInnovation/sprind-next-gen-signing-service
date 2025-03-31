@@ -7,7 +7,7 @@ pub mod verification;
 #[test]
 pub fn test_roundtrip() {
     use crate::{
-        circuits::{self, LESS_THAN_PUBLIC_ID},
+        circuits::{self, GREATER_THAN_PUBLIC_ID, LESS_THAN_PUBLIC_ID},
         device_binding::{BlsFr, SecpFr},
         SECP_GEN,
     };
@@ -21,8 +21,9 @@ pub fn test_roundtrip() {
     use issuance::issue;
     use kvac::bbs_sharp::ecdsa;
     use presentation::present;
+    use rdf_util::oxrdf::vocab::xsd;
     use rdf_util::{ObjectId, Value as RdfValue};
-    use requirements::{DeviceBindingRequirement, DeviceBindingVerificationParams, PublicValue};
+    use requirements::{DeviceBindingRequirement, DeviceBindingVerificationParams};
     use std::{collections::BTreeMap, str::FromStr};
     use verification::verify;
 
@@ -49,6 +50,10 @@ pub fn test_roundtrip() {
                     "1990-01-01T00:00:00Z".into(),
                     "http://www.w3.org/2001/XMLSchema#dateTime".into(),
                 ),
+            ),
+            (
+                "https://example.org/coolness".into(),
+                RdfValue::Typed("10000".into(), xsd::INTEGER.as_str().into()),
             ),
         ]),
         ObjectId::None,
@@ -107,10 +112,17 @@ pub fn test_roundtrip() {
             private_key: "https://schema.org/birthDate".to_string(),
 
             public_var: "b".to_string(),
-            public_val: PublicValue {
-                r#type: "http://www.w3.org/2001/XMLSchema#dateTime".to_string(),
-                value: "2001-01-01T00:00:00Z".to_string(),
-            },
+            public_val: RdfValue::Typed(
+                "2001-01-01T00:00:00Z".into(),
+                "http://www.w3.org/2001/XMLSchema#dateTime".into(),
+            ),
+        },
+        requirements::ProofRequirement::Circuit {
+            id: GREATER_THAN_PUBLIC_ID.to_string(),
+            private_var: "a".to_string(),
+            private_key: "https://example.org/coolness".to_string(),
+            public_var: "b".to_string(),
+            public_val: RdfValue::Typed("9999".into(), xsd::INTEGER.as_str().into()),
         },
     ];
 

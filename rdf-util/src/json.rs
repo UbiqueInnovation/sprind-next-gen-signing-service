@@ -24,6 +24,7 @@ impl Value {
                 ObjectId::None => json!({}),
                 ObjectId::NamedNode(id) | ObjectId::BlankNode(id) => json!({ "@id": id }),
             },
+            Value::Array(arr) => json!(arr.iter().map(|v| v.to_json()).collect::<Vec<_>>()),
         }
     }
 }

@@ -84,7 +84,12 @@ pub fn present<R: RngCore>(
 
                 deanon_map.insert(blank.clone(), value);
 
-                let public_val = format!("\"{}\"^^<{}>", public_val.value, public_val.r#type);
+                let public_val = match public_val {
+                    RdfValue::String(s) => format!("\"{s}\""),
+                    RdfValue::Typed(v, t) => format!("\"{v}\"^^<{t}>"),
+                    _ => unimplemented!(),
+                };
+
                 let predicate = rdf_util::from_str(format!(
                     r#"
                     _:b0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://zkp-ld.org/security#Predicate> .

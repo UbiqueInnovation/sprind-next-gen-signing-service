@@ -1,3 +1,4 @@
+use anyhow::Context;
 use ark_bls12_381::Bls12_381;
 use proof_system::prelude::{
     ped_comm::PedersenCommitment, r1cs_legogroth16::VerifyingKey, EqualWitnesses, MetaStatements,
@@ -39,7 +40,11 @@ pub fn verify<R: RngCore>(
 
     let proof = presentation.proof.to_value(GraphName::DefaultGraph);
     let credential = proof["https://www.w3.org/2018/credentials#verifiableCredential"].clone();
-    let predicates = proof["https://zkp-ld.org/security#predicate"].clone();
+    let predicates = match proof["https://zkp-ld.org/security#predicate"].clone() {
+        RdfValue::Object(m, id) => vec![RdfValue::Object(m, id)],
+        RdfValue::Array(array) => array,
+        _ => anyhow::bail!("Invalid predicates: {proof:#?}"),
+    };
 
     // Verify the device binding
     let mut statements = Statements::new();
@@ -115,7 +120,13 @@ pub fn verify<R: RngCore>(
     for requirement in requirements {
         match requirement {
             ProofRequirement::Required { key } => anyhow::ensure!(body.get(key).is_some()),
-            ProofRequirement::Circuit { private_key, .. } => {
+            ProofRequirement::Circuit {
+                id,
+                private_var,
+                private_key,
+                public_var,
+                public_val,
+            } => {
                 let private_val = &credential
                     ["https://www.w3.org/2018/credentials#credentialSubject"][private_key];
 
@@ -126,13 +137,37 @@ pub fn verify<R: RngCore>(
                     ),
                 };
 
-                // TODO: What about multiple predicates?
-                let RdfValue::Object(_, private_id) = &predicates
-                    ["https://zkp-ld.org/security#private"]
+                // Find the matching predicate
+                let predicate = predicates
+                    .iter()
+                    .find(|p| {
+                        p["https://zkp-ld.org/security#circuit"].id().unwrap() == id
+                            && &p["https://zkp-ld.org/security#public"]
+                                ["http://www.w3.org/1999/02/22-rdf-syntax-ns#first"]
+                                ["https://zkp-ld.org/security#val"]
+                                == public_val
+                            && p["https://zkp-ld.org/security#public"]
+                                ["http://www.w3.org/1999/02/22-rdf-syntax-ns#first"]
+                                ["https://zkp-ld.org/security#var"]
+                                .as_string()
+                                .unwrap()
+                                == public_var
+                            && p["https://zkp-ld.org/security#private"]
+                                ["http://www.w3.org/1999/02/22-rdf-syntax-ns#first"]
+                                ["https://zkp-ld.org/security#var"]
+                                .as_string()
+                                .unwrap()
+                                == private_var
+                    })
+                    .context("Couldn't find predicate!")?;
+
+                // Make sure the id of the blank node matches the id specified in the predicate
+                let Some(private_id) = predicate["https://zkp-ld.org/security#private"]
                     ["http://www.w3.org/1999/02/22-rdf-syntax-ns#first"]
                     ["https://zkp-ld.org/security#val"]
+                    .id()
                 else {
-                    anyhow::bail!("Couldn't get the private value of the circuit!")
+                    anyhow::bail!("Couldn't get the private value of the circuit: {predicates:#?}")
                 };
                 anyhow::ensure!(object_id == private_id, "circuit not satisfied!")
             }

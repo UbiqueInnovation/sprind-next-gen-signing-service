@@ -59,7 +59,17 @@ fn to_value(subject: Subject, triples: &Vec<Triple>, processed: &mut HashSet<Sub
             Term::NamedNode(n) => to_value(Subject::NamedNode(n.clone()), triples, processed),
         };
 
-        map.insert(key, value);
+        if let Some(old) = map.remove(&key) {
+            let mut array = match old {
+                Value::Array(arr) => arr,
+                _ => vec![old],
+            };
+            array.push(value);
+
+            map.insert(key, Value::Array(array));
+        } else {
+            map.insert(key, value);
+        }
     }
 
     let id = match subject {

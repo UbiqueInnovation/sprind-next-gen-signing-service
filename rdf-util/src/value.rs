@@ -1,22 +1,24 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use oxrdf::{BlankNode, Graph, Literal, NamedNode, NamedOrBlankNode, Subject, Term, Triple};
+use serde::{Deserialize, Serialize};
 
 use crate::BlankGenerator;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ObjectId {
     None,
     BlankNode(String),
     NamedNode(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Value {
     String(String),
     Typed(String, String),
     Object(BTreeMap<String, Value>, ObjectId),
     ObjectRef(ObjectId),
+    Array(Vec<Value>),
 }
 
 impl Value {
@@ -54,22 +56,63 @@ impl Value {
     }
 
     pub fn to_graph(&self, prefix: Option<String>) -> Graph {
-        let prefix = prefix.unwrap_or("b".to_string());
-        let mut generator = BlankGenerator::init(self);
-
-        let mut transform_id = |id: &ObjectId| -> NamedOrBlankNode {
+        fn transform_id(
+            id: &ObjectId,
+            gen: &mut BlankGenerator,
+            prefix: &String,
+        ) -> NamedOrBlankNode {
             match id {
                 ObjectId::None => {
-                    NamedOrBlankNode::BlankNode(BlankNode::new_unchecked(generator.next(&prefix)))
+                    NamedOrBlankNode::BlankNode(BlankNode::new_unchecked(gen.next(prefix)))
                 }
                 ObjectId::BlankNode(b) => NamedOrBlankNode::BlankNode(BlankNode::new_unchecked(b)),
                 ObjectId::NamedNode(n) => NamedOrBlankNode::NamedNode(NamedNode::new_unchecked(n)),
             }
-        };
+        }
+
+        fn process<'a>(
+            value: &'a Value,
+            next: &mut Vec<(NamedOrBlankNode, &'a BTreeMap<String, Value>)>,
+            gen: &mut BlankGenerator,
+            prefix: &String,
+        ) -> Vec<Term> {
+            match value {
+                Value::String(s) => vec![Term::Literal(Literal::new_simple_literal(s))],
+                Value::Typed(v, t) => vec![Term::Literal(Literal::new_typed_literal(
+                    v,
+                    NamedNode::new_unchecked(t),
+                ))],
+                Value::Object(m, id) => {
+                    let id = transform_id(id, gen, prefix);
+
+                    next.push((id.clone(), m));
+
+                    vec![match id {
+                        NamedOrBlankNode::BlankNode(b) => Term::BlankNode(b),
+                        NamedOrBlankNode::NamedNode(n) => Term::NamedNode(n),
+                    }]
+                }
+                Value::ObjectRef(id) => {
+                    let id = transform_id(id, gen, prefix);
+                    vec![match id {
+                        NamedOrBlankNode::BlankNode(b) => Term::BlankNode(b),
+                        NamedOrBlankNode::NamedNode(n) => Term::NamedNode(n),
+                    }]
+                }
+                Value::Array(arr) => arr
+                    .iter()
+                    .map(|v| process(v, next, gen, prefix))
+                    .flatten()
+                    .collect::<Vec<_>>(),
+            }
+        }
+
+        let prefix = prefix.unwrap_or("b".to_string());
+        let mut gen = BlankGenerator::init(self);
 
         let mut maps = match self {
             Value::Object(m, id) => {
-                vec![(transform_id(id), m)]
+                vec![(transform_id(id, &mut gen, &prefix), m)]
             }
             _ => Vec::new(),
         };
@@ -85,36 +128,14 @@ impl Value {
                         NamedOrBlankNode::NamedNode(n) => Subject::NamedNode(n),
                     };
                     let predicate = NamedNode::new_unchecked(k);
-                    let object = match v {
-                        Value::String(s) => Term::Literal(Literal::new_simple_literal(s)),
-                        Value::Typed(v, t) => Term::Literal(Literal::new_typed_literal(
-                            v,
-                            NamedNode::new_unchecked(t),
-                        )),
-                        Value::Object(m, mid) => {
-                            let mid = transform_id(mid);
 
-                            next.push((mid.clone(), m));
-
-                            match mid {
-                                NamedOrBlankNode::BlankNode(b) => Term::BlankNode(b),
-                                NamedOrBlankNode::NamedNode(n) => Term::NamedNode(n),
-                            }
-                        }
-                        Value::ObjectRef(mid) => {
-                            let mid = transform_id(mid);
-                            match mid {
-                                NamedOrBlankNode::BlankNode(b) => Term::BlankNode(b),
-                                NamedOrBlankNode::NamedNode(n) => Term::NamedNode(n),
-                            }
-                        }
-                    };
-
-                    triples.push(Triple {
-                        subject,
-                        predicate,
-                        object,
-                    });
+                    for object in process(v, &mut next, &mut gen, &prefix) {
+                        triples.push(Triple {
+                            subject: subject.clone(),
+                            predicate: predicate.clone(),
+                            object,
+                        });
+                    }
                 }
             }
 
@@ -122,6 +143,13 @@ impl Value {
         }
 
         Graph::from_iter(triples)
+    }
+
+    pub fn as_string(&self) -> Option<&String> {
+        match self {
+            Self::String(s) => Some(s),
+            _ => None,
+        }
     }
 
     pub fn as_object(&self) -> Option<(&BTreeMap<String, Value>, &ObjectId)> {
@@ -137,10 +165,30 @@ impl Value {
             _ => None,
         }
     }
+
+    pub fn id(&self) -> Option<&ObjectId> {
+        match self {
+            Self::Object(_, id) | Self::ObjectRef(id) => Some(id),
+            _ => None,
+        }
+    }
 }
 
 impl ToString for Value {
     fn to_string(&self) -> String {
         self.to_string_with_prefix("b".to_string())
+    }
+}
+
+impl<S> PartialEq<S> for ObjectId
+where
+    S: AsRef<str>,
+{
+    fn eq(&self, other: &S) -> bool {
+        let other = other.as_ref();
+        match self {
+            ObjectId::None => false,
+            ObjectId::BlankNode(n) | ObjectId::NamedNode(n) => n == other,
+        }
     }
 }

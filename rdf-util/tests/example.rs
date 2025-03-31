@@ -128,3 +128,23 @@ fn test_parse_hint() {
 
     println!("{:#}", rdf.to_json())
 }
+
+#[test]
+fn test_rdf_array() {
+    let source = r#"
+        _:b0 <https://example.org/value> "Hello" .
+        _:b0 <https://example.org/value> "World" .
+        "#;
+
+    let rdf = rdf_util::from_str(source).unwrap();
+
+    println!("{:#}", rdf.to_json());
+
+    assert_eq!(
+        rdf["https://example.org/value"],
+        Value::Array(vec![
+            Value::String("Hello".into()),
+            Value::String("World".into())
+        ])
+    );
+}
