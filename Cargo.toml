@@ -11,6 +11,9 @@ ark-bls12-381 = { version = "^0.4.0", default-features = false, features = [
 ] }
 ark-ff = { version = "^0.4.1", default-features = false }
 ark-secp256r1 = { version = "^0.4.0", default-features = false }
+ark-serialize = { version = "^0.4.1", default-features = false, features = [
+    "derive",
+] }
 ark-std = { version = "^0.4.0", default-features = false }
 base64 = "0.22.1"
 bbs_plus = { version = "0.24.0", default-features = false, features = [
@@ -23,9 +26,6 @@ serde_json = { version = "1.0.132" }
 
 # ark-ff = { version = "^0.4.1", default-features = false }
 # ark-poly = { version = "^0.4.1", default-features = false }
-# ark-serialize = { version = "^0.4.1", default-features = false, features = [
-#     "derive",
-# ] }
 # ark-relations = { version = "^0.4.0", default-features = false }
 # ark-r1cs-std = { version = "^0.4.0", default-features = false }
 # ark-groth16 = { version = "^0.4.0", default-features = false }

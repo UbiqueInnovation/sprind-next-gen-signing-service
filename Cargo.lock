@@ -4531,6 +4531,7 @@ dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-secp256r1",
+ "ark-serialize",
  "ark-std",
  "base64",
  "bbs_plus 0.24.0",

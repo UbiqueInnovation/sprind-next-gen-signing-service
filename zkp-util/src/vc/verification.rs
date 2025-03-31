@@ -40,9 +40,10 @@ pub fn verify<R: RngCore>(
 
     let proof = presentation.proof.to_value(GraphName::DefaultGraph);
     let credential = proof["https://www.w3.org/2018/credentials#verifiableCredential"].clone();
-    let predicates = match proof["https://zkp-ld.org/security#predicate"].clone() {
-        RdfValue::Object(m, id) => vec![RdfValue::Object(m, id)],
-        RdfValue::Array(array) => array,
+    let predicates = match proof.get("https://zkp-ld.org/security#predicate") {
+        Some(RdfValue::Object(m, id)) => vec![RdfValue::Object(m.clone(), id.clone())],
+        Some(RdfValue::Array(array)) => array.clone(),
+        None => vec![],
         _ => anyhow::bail!("Invalid predicates: {proof:#?}"),
     };
 

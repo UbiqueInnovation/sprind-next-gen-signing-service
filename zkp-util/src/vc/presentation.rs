@@ -15,7 +15,8 @@ use rdf_util::{
 use crate::{
     circuits::load_circuits,
     device_binding::{
-        DeviceBinding, DEVICE_BINDING_KEY, DEVICE_BINDING_KEY_X, DEVICE_BINDING_KEY_Y,
+        DeviceBinding, DeviceBindingPresentation, DEVICE_BINDING_KEY, DEVICE_BINDING_KEY_X,
+        DEVICE_BINDING_KEY_Y,
     },
     vc::index::index_of_vc,
 };
@@ -24,7 +25,7 @@ use super::requirements::{DeviceBindingRequirement, ProofRequirement};
 
 pub struct VerifiablePresentation {
     pub proof: MultiGraph,
-    pub device_binding: Option<DeviceBinding>,
+    pub device_binding: Option<DeviceBindingPresentation>,
 }
 
 pub fn present<R: RngCore>(
@@ -250,6 +251,6 @@ pub fn present<R: RngCore>(
 
     Ok(VerifiablePresentation {
         proof: MultiGraph::new(&proof),
-        device_binding,
+        device_binding: device_binding.map(|db| db.present()),
     })
 }
