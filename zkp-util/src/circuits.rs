@@ -4,6 +4,7 @@ use multibase::Base;
 use rand_core::RngCore;
 use rdf_proofs::{ark_to_base64url, Circuit};
 use rdf_util::oxrdf::NamedNode;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::Cursor};
 
 use crate::vc::requirements::ProofRequirement;
@@ -20,7 +21,7 @@ const GREATER_THAN_PUBLIC_R1CS: &[u8] =
 const GREATER_THAN_PUBLIC_WASM: &[u8] =
     include_bytes!("../circom/bls12381/larger_than_public_64.wasm");
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Circuits {
     pub verifying_keys: HashMap<String, String>,
     pub proving_keys: HashMap<String, String>,

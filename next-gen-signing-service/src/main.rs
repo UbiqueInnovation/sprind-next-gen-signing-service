@@ -74,6 +74,7 @@ mod bbs_plus_routes {
     }
 }
 
+/*
 mod zkp_routes {
     use std::collections::HashMap;
 
@@ -290,6 +291,7 @@ mod zkp_routes {
         Json(json)
     }
 }
+*/
 
 #[get("/")]
 fn index() -> String {
@@ -342,16 +344,16 @@ fn rocket() -> _ {
                 bbs_plus_routes::BbsPlusG2Provider_verify,
             ],
         )
-        .mount(
-            "/zkp/",
-            routes![
-                zkp_routes::gen_keypair,
-                zkp_routes::issue,
-                zkp_routes::gen_proving_keys,
-                zkp_routes::present,
-                zkp_routes::verify
-            ],
-        )
+    // .mount(
+    //     "/zkp/",
+    //     routes![
+    //         zkp_routes::gen_keypair,
+    //         zkp_routes::issue,
+    //         zkp_routes::gen_proving_keys,
+    //         zkp_routes::present,
+    //         zkp_routes::verify
+    //     ],
+    // )
 }
 
 #[cfg(test)]

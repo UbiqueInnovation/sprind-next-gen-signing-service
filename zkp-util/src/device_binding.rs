@@ -76,11 +76,11 @@ pub struct DeviceBindingPresentation {
     pub eq_x: ProofLargeWitness,
     pub eq_y: ProofLargeWitness,
 
-    pub comm_pk: PointCommitment<Tom256Affine>, // TODO: Figure out if this Information can be shared
+    pub comm_pk: PointCommitment<Tom256Affine>,
 
     pub bls_comm_key: Vec<BlsG1Affine>,
-    pub bls_comm_pk_x: BlsG1Affine, // TODO: Figure out if this is allowed to be shared
-    pub bls_comm_pk_y: BlsG1Affine, // TODO: Figure out if this is allowed to be shared
+    pub bls_comm_pk_x: BlsG1Affine,
+    pub bls_comm_pk_y: BlsG1Affine,
 }
 
 impl DeviceBinding {
@@ -339,6 +339,8 @@ pub fn test_device_binding() {
 
     let mut bytes = Vec::<u8>::new();
     presentation.serialize_compressed(&mut bytes).unwrap();
+
+    println!("{}", bytes.len());
 
     let presentation =
         DeviceBindingPresentation::deserialize_compressed(Cursor::new(bytes)).unwrap();

@@ -8,7 +8,7 @@ use equality_across_groups::ec::commitments::from_base_field_to_scalar_field;
 use kvac::bbs_sharp::ecdsa;
 use rdf_util::oxrdf::vocab::xsd;
 use rdf_util::{ObjectId, Value as RdfValue};
-use std::{collections::BTreeMap, str::FromStr};
+use std::{collections::BTreeMap, str::FromStr, time::Instant};
 use zkp_util::{
     circuits::{self, GREATER_THAN_PUBLIC_ID, LESS_THAN_PUBLIC_ID},
     device_binding::{BlsFr, SecpFr},
@@ -136,6 +136,8 @@ fn device_binding_with_predicates() {
 
     let circuits = circuits::generate_circuits(&mut rng, &requirements);
 
+    let start = Instant::now();
+
     let vp = present(
         &mut rng,
         vc,
@@ -147,6 +149,10 @@ fn device_binding_with_predicates() {
         ISSUER_KEY_ID,
     )
     .unwrap();
+
+    let end = Instant::now();
+
+    println!("elapsed: {}", (end - start).as_millis());
 
     let db_verification = DeviceBindingVerificationParams {
         message,

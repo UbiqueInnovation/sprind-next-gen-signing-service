@@ -15,7 +15,7 @@ base64 = { workspace = true }
 bbs_plus = { workspace = true }
 blake2 = { workspace = true }
 bulletproofs_plus_plus = { version = "0.8.0", default-features = false }
-chrono = { version = "0.4.38" }
+chrono = { workspace = true }
 ciborium = { version = "0.2" }
 dock_crypto_utils = { workspace = true }
 equality_across_groups = { version = "0.1.0", default-features = false, features = [

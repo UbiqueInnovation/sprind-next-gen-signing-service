@@ -12,5 +12,3 @@ pub mod bbs;
 
 #[cfg(feature = "zkp")]
 pub mod zkp;
-
-pub mod common;

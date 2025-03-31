@@ -8,7 +8,7 @@ use equality_across_groups::ec::commitments::from_base_field_to_scalar_field;
 use kvac::bbs_sharp::ecdsa;
 use rdf_util::oxrdf::vocab::xsd;
 use rdf_util::{ObjectId, Value as RdfValue};
-use std::{collections::BTreeMap, str::FromStr};
+use std::{collections::BTreeMap, str::FromStr, time::Instant};
 use zkp_util::{
     circuits::{self, GREATER_THAN_PUBLIC_ID, LESS_THAN_PUBLIC_ID},
     device_binding::{BlsFr, SecpFr},
@@ -98,29 +98,9 @@ fn device_binding() {
 
     println!("issuance done! {vc}");
 
-    let requirements = vec![
-        requirements::ProofRequirement::Required {
-            key: "https://schema.org/name".into(),
-        },
-        requirements::ProofRequirement::Circuit {
-            id: LESS_THAN_PUBLIC_ID.to_string(),
-            private_var: "a".to_string(),
-            private_key: "https://schema.org/birthDate".to_string(),
-
-            public_var: "b".to_string(),
-            public_val: RdfValue::Typed(
-                "2001-01-01T00:00:00Z".into(),
-                "http://www.w3.org/2001/XMLSchema#dateTime".into(),
-            ),
-        },
-        requirements::ProofRequirement::Circuit {
-            id: GREATER_THAN_PUBLIC_ID.to_string(),
-            private_var: "a".to_string(),
-            private_key: "https://example.org/coolness".to_string(),
-            public_var: "b".to_string(),
-            public_val: RdfValue::Typed("9999".into(), xsd::INTEGER.as_str().into()),
-        },
-    ];
+    let requirements = vec![requirements::ProofRequirement::Required {
+        key: "https://schema.org/name".into(),
+    }];
 
     let db_requirement = DeviceBindingRequirement {
         public_key,
@@ -136,7 +116,9 @@ fn device_binding() {
 
     let circuits = circuits::generate_circuits(&mut rng, &requirements);
 
-    let vp = present(
+    let start = Instant::now();
+
+    let mut vp = present(
         &mut rng,
         vc,
         &requirements,
@@ -148,6 +130,10 @@ fn device_binding() {
     )
     .unwrap();
 
+    let end = Instant::now();
+
+    println!("elapsed: {}", (end - start).as_millis());
+
     let db_verification = DeviceBindingVerificationParams {
         message,
         comm_key_secp_label: comm_key_secp.to_vec(),
@@ -157,6 +143,13 @@ fn device_binding() {
         merlin_transcript_label,
         challenge_label,
     };
+
+    // if let Some(db) = vp.device_binding.as_mut() {
+    //     db.eq_x = db.eq_y.clone();
+    //     db.bls_comm_pk_x = db.bls_comm_pk_y;
+    // }
+
+    let start = Instant::now();
 
     let body = verify(
         &mut rng,
@@ -169,6 +162,10 @@ fn device_binding() {
         ISSUER_KEY_ID,
     )
     .unwrap();
+
+    let end = Instant::now();
+
+    println!("elapsed (verify): {}", (end - start).as_millis());
 
     println!("{body:#}")
 }

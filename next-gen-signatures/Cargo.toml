@@ -4,28 +4,49 @@ version = "0.1.2"
 edition = "2021"
 
 [features]
-rocket = ["dep:rocket"]
-all-algos = ["fips204", "bbs"]
+all = ["bbs", "fips204", "rocket", "zkp"]
+bbs = [
+    "dep:ark-bls12-381",
+    "dep:ark-ec",
+    "dep:ark-serialize",
+    "dep:bbs_plus",
+    "dep:blake2",
+    "dep:schnorr_pok",
+]
 fips204 = ["dep:fips204"]
-bbs = ["dep:ark-bls12-381", "dep:ark-ec", "dep:bbs_plus", "dep:blake2"]
-zkp = []
+rocket = ["dep:rocket"]
+zkp = [
+    "dep:chrono",
+    "dep:iref",
+    "dep:json-ld",
+    "dep:rdf-util",
+    "dep:static-iref",
+    "dep:zkp-util",
+]
 
 [dependencies]
-anyhow = "1.0.89"
+anyhow = { workspace = true }
 ark-bls12-381 = { workspace = true, optional = true }
 ark-ec = { workspace = true, optional = true }
 ark-serialize = { workspace = true, optional = true }
 base64 = "0.22.1"
 bbs_plus = { workspace = true, optional = true }
 blake2 = { workspace = true, optional = true }
+chrono = { workspace = true, optional = true }
 dock_crypto_utils = { workspace = true }
 fips204 = { version = "0.2.2", optional = true }
+iref = { version = "3.2.2", optional = true }
+json-ld = { version = "0.21.1", features = ["reqwest"], optional = true }
 num-bigint = { workspace = true }
 paste = "1.0.15"
 rand_core = { workspace = true }
-rocket = { version = "0.5.1", optional = true }
+rdf-util = { path = "../rdf-util", optional = true }
+rocket = { workspace = true, optional = true }
 schnorr_pok = { version = "0.20.0", optional = true }
-zkp-util = { path = "../zkp-util" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+static-iref = { version = "3.0.0", optional = true }
+zkp-util = { path = "../zkp-util", optional = true }
 
 [target.'cfg(any(target_os = "android"))'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }

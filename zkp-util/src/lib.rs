@@ -8,6 +8,7 @@ use equality_across_groups::{
 
 pub mod circuits;
 pub mod device_binding;
+pub mod keypair;
 pub mod vc;
 
 pub const SECP_GEN: SecpAffine = SecpAffine::new_unchecked(G_GENERATOR_X, G_GENERATOR_Y);
@@ -22,6 +23,8 @@ const NUM_CHUNKS: usize = 4;
 pub type PedersenCommitmentKeySecp = PedersenCommitmentKey<SecpAffine>;
 pub type PedersenCommitmentKeyTom = PedersenCommitmentKey<Tom256Affine>;
 pub type PedersenCommitmentKeyBls = PedersenCommitmentKey<BlsG1Affine>;
+
+pub type EcdsaSignature = kvac::bbs_sharp::ecdsa::Signature;
 
 pub type ProofLargeWitness = ProofLargeWitnessOrig<
     Tom256Affine,

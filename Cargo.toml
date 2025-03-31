@@ -1,7 +1,17 @@
 [workspace]
 resolver = "2"
-members = ["rdf-util", "zkp-util", "next-gen-signatures"]
-default-members = ["rdf-util", "zkp-util", "next-gen-signatures"]
+members = [
+    "next-gen-signatures",
+    "next-gen-signing-service",
+    "rdf-util",
+    "zkp-util",
+]
+default-members = [
+    "next-gen-signatures",
+    "next-gen-signing-service",
+    "rdf-util",
+    "zkp-util",
+]
 
 [workspace.dependencies]
 anyhow = { version = "1.0.97", default-features = false }
@@ -20,11 +30,13 @@ bbs_plus = { version = "0.24.0", default-features = false, features = [
     "parallel",
 ] }
 blake2 = { version = "0.10", default-features = false }
+chrono = { version = "0.4.38" }
 dock_crypto_utils = { version = "0.22.0", default-features = false }
 multibase = { version = "0.9.1" }
 num-bigint = { version = "0.4.6" }
 rand_core = { version = "0.6", default-features = false, features = [
     "getrandom",
 ] }
+rocket = { version = "0.5.1", features = ["json"] }
 serde = { version = "1.0.132", features = ["derive"] }
 serde_json = { version = "1.0.132" }
