@@ -6,13 +6,14 @@ use proof_system::prelude::{
     ped_comm::PedersenCommitment, EqualWitnesses, MetaStatements, Statements, Witness, Witnesses,
 };
 use rand_core::RngCore;
-use rdf_proofs::{Circuit, KeyGraph, VcPair, VerifiableCredential};
+use rdf_proofs::{KeyGraph, VcPair, VerifiableCredential};
 use rdf_util::{
     oxrdf::{BlankNode, Graph, Literal, NamedNode, NamedOrBlankNode, Subject, Term},
-    MultiGraph, ObjectId, Value as RdfValue,
+    BlankGenerator, MultiGraph, ObjectId, Value as RdfValue,
 };
 
 use crate::{
+    circuits::load_circuits,
     device_binding::{
         DeviceBinding, DEVICE_BINDING_KEY, DEVICE_BINDING_KEY_X, DEVICE_BINDING_KEY_Y,
     },
@@ -31,14 +32,14 @@ pub fn present<R: RngCore>(
     vc: VerifiableCredential,
     requirements: &Vec<ProofRequirement>,
     device_binding: Option<DeviceBindingRequirement>,
-    // proving_keys: &HashMap<String, String>,
+    proving_keys: &HashMap<String, String>,
     issuer_pk: &str,
     issuer_id: &str,
     issuer_key_id: &str,
 ) -> anyhow::Result<VerifiablePresentation> {
     let mut deanon_map = HashMap::<NamedOrBlankNode, Term>::new();
-    let predicates = Vec::<Graph>::new();
-    let circuits = HashMap::<NamedNode, Circuit>::new();
+    let mut predicates = Vec::<Graph>::new();
+    let circuits = load_circuits(proving_keys);
 
     // Figure out what information needs to be disclosed and prepare the vp
     let vc_document = rdf_util::Value::from(&vc.document);
@@ -47,6 +48,7 @@ pub fn present<R: RngCore>(
         .as_object()
         .context("Couldn't get the vc_document credentialSubject!")?;
 
+    let mut generator = BlankGenerator::default();
     let mut disclosed = BTreeMap::<String, RdfValue>::new();
 
     for requirement in requirements {
@@ -54,7 +56,61 @@ pub fn present<R: RngCore>(
             ProofRequirement::Required { key } => {
                 disclosed.insert(key.clone(), body[key].clone());
             }
-            ProofRequirement::Circuit { .. } => todo!(),
+            ProofRequirement::Circuit {
+                id,
+                private_var,
+                private_key,
+                public_var,
+                public_val,
+                ..
+            } => {
+                let (_, value) = body.iter().find(|(k, _)| private_key == *k).unwrap();
+
+                let value = match value {
+                    RdfValue::String(s) => Term::Literal(Literal::new_simple_literal(s)),
+                    RdfValue::Typed(v, t) => {
+                        Term::Literal(Literal::new_typed_literal(v, NamedNode::new_unchecked(t)))
+                    }
+                    _ => anyhow::bail!("Invalid private value"),
+                };
+
+                let blank_id = generator.next("e");
+                let blank = deanon_map
+                    .iter()
+                    .find_map(|(k, v)| (v == &value).then_some(k.clone()))
+                    .unwrap_or_else(|| {
+                        NamedOrBlankNode::BlankNode(BlankNode::new_unchecked(blank_id.clone()))
+                    });
+
+                deanon_map.insert(blank.clone(), value);
+
+                let public_val = format!("\"{}\"^^<{}>", public_val.value, public_val.r#type);
+                let predicate = rdf_util::from_str(format!(
+                    r#"
+                    _:b0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://zkp-ld.org/security#Predicate> .
+                    _:b0 <https://zkp-ld.org/security#circuit> <{id}> .
+                    _:b0 <https://zkp-ld.org/security#private> _:b1 .
+                    _:b1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#first> _:b2 .
+                    _:b2 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://zkp-ld.org/security#PrivateVariable> .
+                    _:b2 <https://zkp-ld.org/security#var> "{private_var}" .
+                    _:b2 <https://zkp-ld.org/security#val> _:{blank_id} .
+                    _:b1 <http://www.w3.org/1999/02/22-rdf-syntax-ns#rest> <http://www.w3.org/1999/02/22-rdf-syntax-ns#nil> .
+                    _:b0 <https://zkp-ld.org/security#public> _:b3 .
+                    _:b3 <http://www.w3.org/1999/02/22-rdf-syntax-ns#first> _:b4 .
+                    _:b4 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://zkp-ld.org/security#PublicVariable> .
+                    _:b4 <https://zkp-ld.org/security#var> "{public_var}" .
+                    _:b4 <https://zkp-ld.org/security#val> {public_val} .
+                    _:b3 <http://www.w3.org/1999/02/22-rdf-syntax-ns#rest> <http://www.w3.org/1999/02/22-rdf-syntax-ns#nil> .
+                    "#
+                )).unwrap().to_graph(None);
+
+                predicates.push(predicate);
+
+                disclosed.insert(
+                    private_key.clone(),
+                    RdfValue::ObjectRef(ObjectId::BlankNode(blank_id)),
+                );
+            }
         }
     }
 
@@ -95,20 +151,6 @@ pub fn present<R: RngCore>(
         witnesses.add(Witness::PedersenCommitment(db.bls_scalars_x.clone()));
         witnesses.add(Witness::PedersenCommitment(db.bls_scalars_y.clone()));
 
-        // let canonical_triples = rdf_proofs::get_canonical(
-        //     &vec![VcPair::new(vc.clone(), vc.clone())],
-        //     &deanon_map,
-        //     None,
-        //     None,
-        //     None,
-        //     None,
-        //     None,
-        //     predicates.clone(),
-        // )?[0]
-        //     .document
-        //     .clone();
-        // let canonical_graph = RdfValue::from(canonical_triples.clone());
-        // println!("{}", canonical_graph.to_string());
         let (db_map, db_id) = vc_document[DEVICE_BINDING_KEY]
             .as_object()
             .context("verifiable credential has no device_binding")?;
@@ -121,7 +163,7 @@ pub fn present<R: RngCore>(
             .get(DEVICE_BINDING_KEY_X)
             .context("device binding has no x value")?
         else {
-            panic!("device binding invalid x value")
+            anyhow::bail!("device binding invalid x value")
         };
         let x_term = Term::Literal(Literal::new_typed_literal(
             x_value,
@@ -132,7 +174,7 @@ pub fn present<R: RngCore>(
             .get(DEVICE_BINDING_KEY_Y)
             .context("device binding has no y value")?
         else {
-            panic!("device binding invalid y value")
+            anyhow::bail!("device binding invalid y value")
         };
         let y_term = Term::Literal(Literal::new_typed_literal(
             y_value,
@@ -141,8 +183,6 @@ pub fn present<R: RngCore>(
 
         let x_index = index_of_vc(&vc, &x_term);
         let y_index = index_of_vc(&vc, &y_term);
-
-        println!("xy: {x_index} {y_index}");
 
         meta_statements
             .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, x_index), (1, 0)])));
@@ -207,253 +247,4 @@ pub fn present<R: RngCore>(
         proof: MultiGraph::new(&proof),
         device_binding,
     })
-
-    /*
-    let circuits = load_circuits(proving_keys);
-
-    let mut subject = HashMap::<String, JsonValue>::new();
-    let mut deanon_map = HashMap::<String, String>::new();
-    let mut predicates = Vec::<String>::new();
-
-    let issuer = format!(
-        r#"
-            <{issuer_id}> <https://w3id.org/security#verificationMethod> <{issuer_key_id}> .
-            <{issuer_key_id}> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/security#Multikey> .
-            <{issuer_key_id}> <https://w3id.org/security#controller> <{issuer_id}> .
-            <{issuer_key_id}> <https://w3id.org/security#publicKeyMultibase> "{issuer_pk}"^^<https://w3id.org/security#multibase> .
-        "#
-    );
-
-    let body = json["https://www.w3.org/2018/credentials#credentialSubject"]
-        .as_object()
-        .unwrap();
-
-    let rdf_body = vc_document
-        .get_value(
-            NamedNode::new_unchecked("https://www.w3.org/2018/credentials#credentialSubject"),
-            Some(&vc_document.get_graph_by_name(GraphName::DefaultGraph)),
-        )
-        .unwrap()
-        .as_graph()
-        .unwrap();
-
-    let mut gen = generator::Blank::new_with_prefix("e".to_string());
-
-    let mut statements = Statements::new();
-    let mut meta_statements = MetaStatements::new();
-    let mut witnesses = Witnesses::new();
-
-    let canonical_doc = rdf_proofs::signature::transform(&vc.document).unwrap();
-    */
-
-    /*
-    let db = if let Some(req) = device_binding {
-        let x = Fr::from(BigUint::from_bytes_be(&req.x));
-        let y = Fr::from(BigUint::from_bytes_be(&req.y));
-        let bases_x = (0..2)
-            .map(|_| G1Projective::rand(rng).into_affine())
-            .collect::<Vec<_>>();
-        let bases_y = (0..2)
-            .map(|_| G1Projective::rand(rng).into_affine())
-            .collect::<Vec<_>>();
-        let scalars_x = vec![x, Fr::rand(rng)];
-        let scalars_y = vec![y, Fr::rand(rng)];
-
-        let commitment_x = G1Projective::msm_unchecked(&bases_x, &scalars_x).into_affine();
-        let commitment_y = G1Projective::msm_unchecked(&bases_y, &scalars_y).into_affine();
-
-        statements.add(PedersenCommitment::new_statement_from_params(
-            bases_x.clone(),
-            commitment_x,
-        ));
-
-        statements.add(PedersenCommitment::new_statement_from_params(
-            bases_y.clone(),
-            commitment_y,
-        ));
-
-        let x_index = canonical_doc
-            .iter()
-            .position(|t| {
-                t == &Term::NamedNode(NamedNode::new_unchecked(
-                    "https://example.org/deviceBinding/x",
-                ))
-            })
-            .unwrap()
-            + 2;
-        let y_index = canonical_doc
-            .iter()
-            .position(|t| {
-                t == &Term::NamedNode(NamedNode::new_unchecked(
-                    "https://example.org/deviceBinding/y",
-                ))
-            })
-            .unwrap()
-            + 2;
-
-        println!("indices: {x_index} {y_index}");
-        println!("{:#?}", canonical_doc[x_index]);
-
-        meta_statements
-            .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, x_index), (1, 0)])));
-        meta_statements
-            .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, y_index), (2, 0)])));
-
-        witnesses.add(Witness::PedersenCommitment(scalars_x.clone()));
-        witnesses.add(Witness::PedersenCommitment(scalars_y.clone()));
-
-        let ped_params_x = PairingPedersenParams::<Bls12_381>::new_with_params(
-            bases_x[0].into_group(),
-            bases_x[1].into_group(),
-        );
-        let bbs_x = ped_params_x.commit_with_blinding(scalars_x[0], scalars_x[1]);
-        let ped_params_y = PairingPedersenParams::<Bls12_381>::new_with_params(
-            bases_y[0].into_group(),
-            bases_y[1].into_group(),
-        );
-        let bbs_y = ped_params_y.commit_with_blinding(scalars_y[0], scalars_y[1]);
-
-        use p256::ecdsa::signature::Signer;
-        let signing_key = SigningKey::from_bytes(req.signing_key.as_slice().into()).unwrap();
-        let signature: p256::ecdsa::Signature = signing_key.sign(req.binding_string.as_bytes());
-        let signature: Vec<u8> = signature.to_vec();
-
-        let verification = DeviceBindingVerification {
-            binding_string: req.binding_string.clone(),
-            x_index,
-            y_index,
-        };
-
-        Some((
-            create_device_binding(
-                signature,
-                req.public_key.clone(),
-                req.binding_string.as_bytes().to_vec(),
-                bbs_x,
-                ped_params_x,
-                bbs_y,
-                ped_params_y,
-            ),
-            verification,
-        ))
-    } else {
-        None
-    };
-
-
-    for req in reqs {
-        match req {
-            ProofRequirement::Required { key } => {
-                let (key, value) = body.iter().find(|(k, _)| key == *k).unwrap();
-                subject.insert(key.clone(), value.clone());
-            }
-            ProofRequirement::Circuit {
-                id,
-                private_var,
-                private_key,
-                public_var,
-                public_val,
-                ..
-            } => {
-                let (key, _) = body.iter().find(|(k, _)| private_key == *k).unwrap();
-                let value = rdf_body
-                    .get_value(NamedNode::new_unchecked(key), None)
-                    .unwrap()
-                    .as_value()
-                    .unwrap();
-
-                let public_val = serde_json::to_value(public_val).unwrap();
-
-                let blank = deanon_map
-                    .iter()
-                    .find_map(|(k, v)| (v == &value).then_some(k.clone()))
-                    .unwrap_or_else(|| gen.next_blank_id().to_string());
-
-                deanon_map.insert(blank.clone(), value);
-
-                let predicate = json!({
-                  "@type": "https://zkp-ld.org/security#Predicate",
-                  "https://zkp-ld.org/security#circuit": { "@id": id },
-                  "https://zkp-ld.org/security#private": {
-                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#first": {
-                      "@type": "https://zkp-ld.org/security#PrivateVariable",
-                      "https://zkp-ld.org/security#val": { "@id": "to:be:verified" },
-                      "https://zkp-ld.org/security#var": private_var
-                    },
-                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest": {
-                      "@id": "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"
-                    }
-                  },
-                  "https://zkp-ld.org/security#public": {
-                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#first": {
-                      "@type": "https://zkp-ld.org/security#PublicVariable",
-                      "https://zkp-ld.org/security#val": public_val,
-                      "https://zkp-ld.org/security#var": public_var
-                    },
-                    "http://www.w3.org/1999/02/22-rdf-syntax-ns#rest": {
-                      "@id": "http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"
-                    }
-                  }
-                });
-
-                let predicate =
-                    RdfQuery::from_jsonld(&predicate.to_string(), Some("b".to_string()))
-                        .await
-                        .unwrap()
-                        .to_rdf_string()
-                        .replace("<to:be:verified>", &blank);
-
-                predicates.push(predicate);
-
-                subject.insert(key.clone(), json!({ "@id": blank }));
-            }
-        }
-    }
-
-    let disc_vc = {
-        let mut disc_vc = json.clone();
-
-        /*
-        if db.is_some() {
-            disc_vc
-                .as_object_mut()
-                .unwrap()
-                .remove("https://example.org/deviceBinding");
-        }
-        */
-
-        disc_vc["https://www.w3.org/2018/credentials#credentialSubject"] = json!(subject);
-        RdfQuery::from_jsonld(&disc_vc.to_string(), Some("e".to_string()))
-            .await
-            .unwrap()
-            .to_rdf_string()
-    };
-
-    let vc_pair = VcPairString::new(
-        &vc.document.to_string(),
-        &vc.proof.to_string(),
-        &disc_vc,
-        &vc.proof.to_string(),
-    );
-
-    let proof = rdf_proofs::derive_proof_string(
-        rng,
-        &vec![vc_pair],
-        &deanon_map,
-        &issuer,
-        None,
-        None,
-        None,
-        None,
-        None,
-        Some(&predicates),
-        Some(&circuits),
-        Some(statements),
-        Some(meta_statements),
-        Some(witnesses),
-    )
-    .unwrap();
-
-    proof
-    */
 }

@@ -7,6 +7,7 @@ pub mod verification;
 #[test]
 pub fn test_roundtrip() {
     use crate::{
+        circuits::{self, LESS_THAN_PUBLIC_ID},
         device_binding::{BlsFr, SecpFr},
         SECP_GEN,
     };
@@ -21,7 +22,7 @@ pub fn test_roundtrip() {
     use kvac::bbs_sharp::ecdsa;
     use presentation::present;
     use rdf_util::{ObjectId, Value as RdfValue};
-    use requirements::{DeviceBindingRequirement, DeviceBindingVerificationParams};
+    use requirements::{DeviceBindingRequirement, DeviceBindingVerificationParams, PublicValue};
     use std::{collections::BTreeMap, str::FromStr};
     use verification::verify;
 
@@ -41,6 +42,13 @@ pub fn test_roundtrip() {
             (
                 "https://schema.org/telephone".into(),
                 RdfValue::String("+1 634 535 1587".into()),
+            ),
+            (
+                "https://schema.org/birthDate".into(),
+                RdfValue::Typed(
+                    "1990-01-01T00:00:00Z".into(),
+                    "http://www.w3.org/2001/XMLSchema#dateTime".into(),
+                ),
             ),
         ]),
         ObjectId::None,
@@ -89,9 +97,22 @@ pub fn test_roundtrip() {
 
     println!("issuance done! {}", vc.to_string());
 
-    let requirements = vec![requirements::ProofRequirement::Required {
-        key: "https://schema.org/name".into(),
-    }];
+    let requirements = vec![
+        requirements::ProofRequirement::Required {
+            key: "https://schema.org/name".into(),
+        },
+        requirements::ProofRequirement::Circuit {
+            id: LESS_THAN_PUBLIC_ID.to_string(),
+            private_var: "a".to_string(),
+            private_key: "https://schema.org/birthDate".to_string(),
+
+            public_var: "b".to_string(),
+            public_val: PublicValue {
+                r#type: "http://www.w3.org/2001/XMLSchema#dateTime".to_string(),
+                value: "2001-01-01T00:00:00Z".to_string(),
+            },
+        },
+    ];
 
     let db_requirement = DeviceBindingRequirement {
         public_key,
@@ -105,11 +126,14 @@ pub fn test_roundtrip() {
         challenge_label,
     };
 
+    let circuits = circuits::generate_circuits(&mut rng, &requirements);
+
     let vp = present(
         &mut rng,
         vc,
         &requirements,
         Some(db_requirement),
+        &circuits.proving_keys,
         ISSUER_PK,
         ISSUER_ID,
         ISSUER_KEY_ID,
@@ -131,6 +155,7 @@ pub fn test_roundtrip() {
         vp,
         &requirements,
         Some(db_verification),
+        &circuits.verifying_keys,
         ISSUER_PK,
         ISSUER_ID,
         ISSUER_KEY_ID,

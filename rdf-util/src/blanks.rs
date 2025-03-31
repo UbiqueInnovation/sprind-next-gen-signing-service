@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use crate::Value;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BlankGenerator {
     used_ids: BTreeSet<String>,
 }

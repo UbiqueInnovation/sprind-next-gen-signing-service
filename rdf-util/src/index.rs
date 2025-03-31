@@ -24,15 +24,16 @@ impl Index for str {
     }
 }
 
-impl<T> Index for &T
+impl<S> Index for S
 where
-    T: ?Sized + Index,
+    S: AsRef<str>,
 {
     fn index_into<'v>(&self, v: &'v Value) -> Option<&'v Value> {
-        (**self).index_into(v)
+        self.as_ref().index_into(v)
     }
+
     fn index_or_insert<'v>(&self, v: &'v mut Value) -> Option<&'v mut Value> {
-        (**self).index_or_insert(v)
+        self.as_ref().index_or_insert(v)
     }
 }
 

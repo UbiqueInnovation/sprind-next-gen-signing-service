@@ -2,7 +2,8 @@ use ark_bls12_381::Bls12_381;
 use legogroth16::circom::{r1cs::R1CSFile, CircomCircuit, R1CS as R1CSOrig};
 use multibase::Base;
 use rand_core::RngCore;
-use rdf_proofs::{ark_to_base64url, CircuitString};
+use rdf_proofs::{ark_to_base64url, Circuit};
+use rdf_util::oxrdf::NamedNode;
 use std::{collections::HashMap, io::Cursor};
 
 use crate::vc::requirements::ProofRequirement;
@@ -69,11 +70,11 @@ pub fn generate_circuits<R: RngCore>(rng: &mut R, reqs: &Vec<ProofRequirement>) 
     }
 }
 
-pub fn load_circuits(keys: &HashMap<String, String>) -> HashMap<String, CircuitString> {
+pub fn load_circuits(keys: &HashMap<String, String>) -> HashMap<NamedNode, Circuit> {
     type R1CS = R1CSOrig<Bls12_381>;
 
     let lookup = get_circuit_defs();
-    let mut circuits = HashMap::<String, CircuitString>::new();
+    let mut circuits = HashMap::<NamedNode, Circuit>::new();
 
     for (id, key) in keys {
         let (r1cs, wasm) = lookup.get(id).unwrap();
@@ -82,13 +83,9 @@ pub fn load_circuits(keys: &HashMap<String, String>) -> HashMap<String, CircuitS
         let wasm = multibase::encode(Base::Base64Url, wasm);
         let r1cs = ark_to_base64url(&r1cs).unwrap();
 
-        let circuit = CircuitString {
-            circuit_r1cs: r1cs,
-            circuit_wasm: wasm,
-            snark_proving_key: key.clone(),
-        };
+        let circuit = Circuit::new(&r1cs, &wasm, key).unwrap();
 
-        circuits.insert(id.clone(), circuit);
+        circuits.insert(NamedNode::new_unchecked(id.clone()), circuit);
     }
 
     circuits
