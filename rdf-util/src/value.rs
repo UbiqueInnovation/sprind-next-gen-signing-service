@@ -3,12 +3,23 @@ use std::collections::{BTreeMap, BTreeSet};
 use oxrdf::{BlankNode, Graph, Literal, NamedNode, NamedOrBlankNode, Subject, Term, Triple};
 use serde::{Deserialize, Serialize};
 
-use crate::BlankGenerator;
+use crate::{index::Index, BlankGenerator};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ObjectId {
+    /// No explicit id set.
+    ///
+    /// The expected behaviour of `ObjectId::None` is that generally
+    /// the exact blank id that the object will get doesn't matter,
+    /// the only thing that matters is that the object will be placed
+    /// at the correct spot.
     None,
+
+    /// Set a specific blank id. For example, `"b0"`.
     BlankNode(String),
+
+    /// Set a specific named node.
+    /// For example, `"https://example.org/credentials/0"`.
     NamedNode(String),
 }
 
@@ -22,33 +33,96 @@ pub enum Value {
 }
 
 impl Value {
-    pub(crate) fn taken_blank_ids(&self) -> BTreeSet<String> {
-        let mut ids = BTreeSet::new();
+    pub fn get<I: Index>(&self, index: I) -> Option<&Value> {
+        index.index_into(self)
+    }
 
-        let mut current = match self {
-            Value::Object(m, id) => vec![(m, id)],
-            _ => vec![],
-        };
+    pub fn get_mut<I: Index>(&mut self, index: I) -> Option<&mut Value> {
+        index.index_or_insert(self)
+    }
 
-        while !current.is_empty() {
-            let mut next = Vec::new();
-
-            for (map, id) in current {
-                if let ObjectId::BlankNode(id) = id {
-                    ids.insert(id.clone());
-                }
-
-                for (_, v) in map {
-                    if let Value::Object(m, id) = v {
-                        next.push((m, id));
-                    }
-                }
-            }
-
-            current = next;
+    pub fn as_string(&self) -> Option<&String> {
+        match self {
+            Self::String(s) => Some(s),
+            _ => None,
         }
+    }
 
-        ids
+    pub fn as_string_mut(&mut self) -> Option<&mut String> {
+        match self {
+            Self::String(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn as_typed(&self) -> Option<(&String, &String)> {
+        match self {
+            Self::Typed(value, datatype) => Some((value, datatype)),
+            _ => None,
+        }
+    }
+
+    pub fn as_typed_mut(&mut self) -> Option<(&mut String, &mut String)> {
+        match self {
+            Self::Typed(value, datatype) => Some((value, datatype)),
+            _ => None,
+        }
+    }
+
+    pub fn as_object(&self) -> Option<(&BTreeMap<String, Value>, &ObjectId)> {
+        match self {
+            Value::Object(m, id) => Some((m, id)),
+            _ => None,
+        }
+    }
+
+    pub fn as_object_mut(&mut self) -> Option<(&mut BTreeMap<String, Value>, &mut ObjectId)> {
+        match self {
+            Value::Object(m, id) => Some((m, id)),
+            _ => None,
+        }
+    }
+
+    pub fn as_object_ref(&self) -> Option<&ObjectId> {
+        match self {
+            Self::ObjectRef(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    pub fn as_object_ref_mut(&mut self) -> Option<&mut ObjectId> {
+        match self {
+            Self::ObjectRef(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    pub fn as_array(&self) -> Option<&Vec<Value>> {
+        match self {
+            Self::Array(arr) => Some(arr),
+            _ => None,
+        }
+    }
+
+    pub fn as_array_mut(&mut self) -> Option<&mut Vec<Value>> {
+        match self {
+            Self::Array(arr) => Some(arr),
+            _ => None,
+        }
+    }
+
+    pub fn id(&self) -> Option<&ObjectId> {
+        match self {
+            Self::Object(_, id) | Self::ObjectRef(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    pub fn id_mut(&mut self) -> Option<&mut ObjectId> {
+        match self {
+            Self::Object(_, id) | Self::ObjectRef(id) => Some(id),
+            _ => None,
+        }
     }
 
     pub fn to_string_with_prefix(&self, prefix: String) -> String {
@@ -145,32 +219,36 @@ impl Value {
         Graph::from_iter(triples)
     }
 
-    pub fn as_string(&self) -> Option<&String> {
-        match self {
-            Self::String(s) => Some(s),
-            _ => None,
-        }
-    }
+    pub(crate) fn taken_blank_ids(&self) -> BTreeSet<String> {
+        let mut ids = BTreeSet::new();
 
-    pub fn as_object(&self) -> Option<(&BTreeMap<String, Value>, &ObjectId)> {
         match self {
-            Value::Object(m, id) => Some((m, id)),
-            _ => None,
-        }
-    }
+            Value::Array(arr) => {
+                for value in arr {
+                    ids.extend(value.taken_blank_ids());
+                }
+            }
+            Value::Object(m, ObjectId::BlankNode(id)) => {
+                ids.insert(id.clone());
 
-    pub fn as_object_mut(&mut self) -> Option<(&mut BTreeMap<String, Value>, &mut ObjectId)> {
-        match self {
-            Value::Object(m, id) => Some((m, id)),
-            _ => None,
+                for value in m.values() {
+                    ids.extend(value.taken_blank_ids());
+                }
+            }
+            Value::Object(m, _) => {
+                for value in m.values() {
+                    ids.extend(value.taken_blank_ids());
+                }
+            }
+            Value::ObjectRef(ObjectId::BlankNode(id)) => {
+                ids.insert(id.clone());
+            }
+            Value::ObjectRef(_) => (),
+            Value::String(_) => (),
+            Value::Typed(_, _) => (),
         }
-    }
 
-    pub fn id(&self) -> Option<&ObjectId> {
-        match self {
-            Self::Object(_, id) | Self::ObjectRef(id) => Some(id),
-            _ => None,
-        }
+        ids
     }
 }
 
@@ -180,15 +258,52 @@ impl ToString for Value {
     }
 }
 
-impl<S> PartialEq<S> for ObjectId
-where
-    S: AsRef<str>,
-{
-    fn eq(&self, other: &S) -> bool {
-        let other = other.as_ref();
-        match self {
-            ObjectId::None => false,
-            ObjectId::BlankNode(n) | ObjectId::NamedNode(n) => n == other,
-        }
+#[cfg(test)]
+mod tests {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    use crate::{ObjectId, Value};
+
+    #[test]
+    fn test_used_ids() {
+        assert_eq!(
+            Value::String("".into()).taken_blank_ids(),
+            BTreeSet::from([])
+        );
+
+        assert_eq!(
+            Value::Typed("".into(), "".into()).taken_blank_ids(),
+            BTreeSet::from([])
+        );
+
+        assert_eq!(
+            Value::Object(BTreeMap::from([]), ObjectId::None).taken_blank_ids(),
+            BTreeSet::from([])
+        );
+
+        assert_eq!(
+            Value::Object(BTreeMap::from([]), ObjectId::BlankNode("b0".into())).taken_blank_ids(),
+            BTreeSet::from(["b0".into()])
+        );
+
+        assert_eq!(
+            Value::Object(BTreeMap::from([]), ObjectId::NamedNode("asdf".into())).taken_blank_ids(),
+            BTreeSet::from([])
+        );
+
+        assert_eq!(
+            Value::ObjectRef(ObjectId::None).taken_blank_ids(),
+            BTreeSet::from([])
+        );
+
+        assert_eq!(
+            Value::ObjectRef(ObjectId::BlankNode("b0".into())).taken_blank_ids(),
+            BTreeSet::from(["b0".into()])
+        );
+
+        assert_eq!(
+            Value::ObjectRef(ObjectId::NamedNode("asdf".into())).taken_blank_ids(),
+            BTreeSet::from([])
+        );
     }
 }

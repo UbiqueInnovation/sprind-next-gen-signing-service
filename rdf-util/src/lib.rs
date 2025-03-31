@@ -6,6 +6,8 @@ mod multigraph;
 mod parse;
 mod value;
 
+pub mod test;
+
 pub use oxrdf;
 pub use rdf_canon as canon;
 

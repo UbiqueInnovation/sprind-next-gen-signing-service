@@ -1,21 +1,9 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
-use oxrdf::{NamedNode, Subject};
-use rdf_util::{ObjectId, Value};
-
-fn assert_rdf_string_eq<S1: AsRef<str>, S2: AsRef<str>>(left: S1, right: S2) {
-    let left = left.as_ref().trim().split("\n").collect::<BTreeSet<&str>>();
-    let right = right
-        .as_ref()
-        .trim()
-        .split("\n")
-        .collect::<BTreeSet<&str>>();
-
-    assert_eq!(left, right);
-}
+use rdf_util::{test::assert_rdf_string_eq, ObjectId, Value};
 
 #[test]
-pub fn example() {
+pub fn rdf_example() {
     use oxttl::NTriplesParser;
 
     let source = r#"
@@ -46,8 +34,6 @@ _:b1 <https://example.org/test> "John Doe" .
 
     assert_eq!(rdf["https://example.org/birthDate"], "2000-01-01");
 
-    dbg!(&rdf);
-
     assert_rdf_string_eq(
         rdf.to_string_with_prefix("a".to_string()),
         r#"<did:example:john> <https://example.org/birthDate> "2000-01-01" .
@@ -60,91 +46,9 @@ _:b1 <https://example.org/value> <https://example.org/resource/123> .
 "#,
     );
 
+    // Make sure the produced string is parsable
     NTriplesParser::new()
         .for_reader(rdf.to_string().as_bytes())
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
-}
-
-#[test]
-fn test_none_blank_ids() {
-    let rdf = Value::Object(
-        BTreeMap::from([
-            (
-                "https://example.org/keys#1".into(),
-                Value::Object(
-                    BTreeMap::from([(
-                        "https://example.org/keys#2".into(),
-                        Value::String("value".into()),
-                    )]),
-                    ObjectId::BlankNode("b1".into()),
-                ),
-            ),
-            (
-                "https://example.org/keys#3".into(),
-                Value::Object(
-                    BTreeMap::from([(
-                        "https://example.org/keys#4".into(),
-                        Value::String("value".into()),
-                    )]),
-                    ObjectId::None,
-                ),
-            ),
-        ]),
-        ObjectId::None,
-    );
-
-    assert_rdf_string_eq(
-        rdf.to_string_with_prefix("a".into()),
-        r#"_:a0 <https://example.org/keys#1> _:b1 .
-_:a0 <https://example.org/keys#3> _:a1 .
-_:b1 <https://example.org/keys#2> "value" .
-_:a1 <https://example.org/keys#4> "value" .
-"#,
-    );
-
-    assert_rdf_string_eq(
-        rdf.to_string_with_prefix("b".into()),
-        r#"_:b0 <https://example.org/keys#1> _:b1 .
-_:b0 <https://example.org/keys#3> _:b2 .
-_:b1 <https://example.org/keys#2> "value" .
-_:b2 <https://example.org/keys#4> "value" .
-"#,
-    );
-}
-
-#[test]
-fn test_parse_hint() {
-    let source = r#"
-    <did:example:obj1> <https://example.org/relation> <did:example:obj2> .
-    <did:example:obj2> <https://example.org/circle> <did:example:obj1> .
-        "#;
-
-    let rdf = rdf_util::from_str_with_hint(
-        source,
-        Subject::NamedNode(NamedNode::new_unchecked("did:example:obj1")),
-    )
-    .unwrap();
-
-    println!("{:#}", rdf.to_json())
-}
-
-#[test]
-fn test_rdf_array() {
-    let source = r#"
-        _:b0 <https://example.org/value> "Hello" .
-        _:b0 <https://example.org/value> "World" .
-        "#;
-
-    let rdf = rdf_util::from_str(source).unwrap();
-
-    println!("{:#}", rdf.to_json());
-
-    assert_eq!(
-        rdf["https://example.org/value"],
-        Value::Array(vec![
-            Value::String("Hello".into()),
-            Value::String("World".into())
-        ])
-    );
 }
