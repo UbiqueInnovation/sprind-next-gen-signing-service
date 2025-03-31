@@ -105,7 +105,7 @@ fn from_triples(triples: Vec<Triple>, root_hint: Option<Subject>) -> anyhow::Res
         roots
     };
 
-    anyhow::ensure!(roots.len() > 0, "No roots found!");
+    anyhow::ensure!(!roots.is_empty(), "No roots found!");
 
     let root_id = roots
         .iter()

@@ -11,6 +11,7 @@ use rdf_util::{
 
 use crate::device_binding::{DEVICE_BINDING_KEY, DEVICE_BINDING_KEY_X, DEVICE_BINDING_KEY_Y};
 
+#[allow(clippy::too_many_arguments)]
 pub fn issue<R: RngCore>(
     rng: &mut R,
     claims: RdfValue,
@@ -55,7 +56,7 @@ pub fn issue<R: RngCore>(
         claims_id = ObjectId::None;
     };
 
-    let mut data = rdf_util::from_str(&format!(
+    let mut data = rdf_util::from_str(format!(
         r#"
         <{credential_id}> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
         <{credential_id}> <https://www.w3.org/2018/credentials#issuer> <{issuer_id}> .
@@ -82,7 +83,7 @@ pub fn issue<R: RngCore>(
         )
     }
 
-    let proof_cfg = rdf_util::from_str(&format!(
+    let proof_cfg = rdf_util::from_str(format!(
         r#"
         _:b0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://w3id.org/security#DataIntegrityProof> .
         _:b0 <https://w3id.org/security#cryptosuite> "bbs-termwise-signature-2023" .

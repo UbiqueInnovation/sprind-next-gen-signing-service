@@ -23,6 +23,7 @@ use super::{
     requirements::{DeviceBindingVerificationParams, ProofRequirement},
 };
 
+#[allow(clippy::too_many_arguments)]
 pub fn verify<R: RngCore>(
     rng: &mut R,
     presentation: VerifiablePresentation,

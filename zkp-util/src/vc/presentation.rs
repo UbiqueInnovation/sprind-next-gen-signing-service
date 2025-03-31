@@ -28,6 +28,7 @@ pub struct VerifiablePresentation {
     pub device_binding: Option<DeviceBindingPresentation>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn present<R: RngCore>(
     rng: &mut R,
     vc: VerifiableCredential,

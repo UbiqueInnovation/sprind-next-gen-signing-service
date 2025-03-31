@@ -55,7 +55,7 @@ fn predicates() {
     )
     .unwrap();
 
-    println!("issuance done! {}", vc.to_string());
+    println!("issuance done! {vc}");
 
     let requirements = vec![
         requirements::ProofRequirement::Required {

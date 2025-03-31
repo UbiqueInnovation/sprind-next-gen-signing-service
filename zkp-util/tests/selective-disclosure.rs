@@ -56,7 +56,7 @@ fn selective_disclosure() {
     )
     .unwrap();
 
-    println!("issuance done! {}", vc.to_string());
+    println!("issuance done! {vc}");
 
     let requirements = vec![requirements::ProofRequirement::Required {
         key: "https://schema.org/name".into(),

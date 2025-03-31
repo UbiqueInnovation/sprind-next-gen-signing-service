@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Display,
+};
 
 use oxrdf::{BlankNode, Graph, Literal, NamedNode, NamedOrBlankNode, Subject, Term, Triple};
 use serde::{Deserialize, Serialize};
@@ -175,8 +178,7 @@ impl Value {
                 }
                 Value::Array(arr) => arr
                     .iter()
-                    .map(|v| process(v, next, gen, prefix))
-                    .flatten()
+                    .flat_map(|v| process(v, next, gen, prefix))
                     .collect::<Vec<_>>(),
             }
         }
@@ -252,9 +254,9 @@ impl Value {
     }
 }
 
-impl ToString for Value {
-    fn to_string(&self) -> String {
-        self.to_string_with_prefix("b".to_string())
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string_with_prefix("b".to_string()))
     }
 }
 

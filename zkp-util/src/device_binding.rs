@@ -83,87 +83,8 @@ pub struct DeviceBindingPresentation {
     pub bls_comm_pk_y: BlsG1Affine, // TODO: Figure out if this is allowed to be shared
 }
 
-impl DeviceBindingPresentation {
-    pub fn verify<R: RngCore>(
-        &self,
-        rng: &mut R,
-        message: SecpFr,
-        comm_key_secp_label: &[u8],
-        comm_key_tom_label: &[u8],
-        comm_key_bls_label: &[u8],
-        bpp_setup_label: &[u8],
-        merlin_transcript_label: &'static [u8],
-        challenge_label: &'static [u8],
-    ) -> anyhow::Result<()> {
-        let comm_key_secp = PedersenCommitmentKeySecp::new::<Blake2b512>(comm_key_secp_label);
-        let comm_key_tom = PedersenCommitmentKeyTom::new::<Blake2b512>(comm_key_tom_label);
-        let comm_key_bls = PedersenCommitmentKeyBls::new::<Blake2b512>(comm_key_bls_label);
-
-        let base = 2;
-        let mut bpp_setup_params =
-            BppSetupParams::<Tom256Affine>::new_for_perfect_range_proof::<Blake2b512>(
-                bpp_setup_label,
-                base,
-                WITNESS_BIT_SIZE as u16,
-                NUM_CHUNKS as u32,
-            );
-        bpp_setup_params.G = comm_key_tom.g;
-        bpp_setup_params.H_vec[0] = comm_key_tom.h;
-
-        let mut verifier_transcript = new_merlin_transcript(merlin_transcript_label);
-        verifier_transcript.append(b"comm_key_secp", &comm_key_secp);
-        verifier_transcript.append(b"comm_key_tom", &comm_key_tom);
-        verifier_transcript.append(b"comm_key_bls", &comm_key_bls);
-        verifier_transcript.append(b"bpp_setup_params", &bpp_setup_params);
-        verifier_transcript.append(b"comm_pk", &self.comm_pk);
-        verifier_transcript.append(b"bls_comm_pk_x", &self.bls_comm_pk_x);
-        verifier_transcript.append(b"bls_comm_pk_y", &self.bls_comm_pk_y);
-        verifier_transcript.append(b"message", &message);
-        self.proof
-            .challenge_contribution(&mut verifier_transcript)
-            .map_err(|e| anyhow!("Failed to challenge contribution: {e:?}"))?;
-
-        let challenge_verifier = verifier_transcript.challenge_scalar(challenge_label);
-
-        self.proof
-            .verify_using_randomized_mult_checker(
-                message,
-                self.comm_pk,
-                &challenge_verifier,
-                comm_key_secp,
-                comm_key_tom,
-                &mut RandomizedMultChecker::<SecpAffine>::new_using_rng(rng),
-                &mut RandomizedMultChecker::<Tom256Affine>::new_using_rng(rng),
-            )
-            .map_err(|e| anyhow!("Failed to verify proof: {e:?}"))?;
-
-        self.eq_x
-            .verify(
-                &self.comm_pk.x,
-                &self.bls_comm_pk_x,
-                &comm_key_tom,
-                &comm_key_bls,
-                &bpp_setup_params,
-                &mut verifier_transcript,
-            )
-            .map_err(|e| anyhow!("Failed to verify eq_x: {e:?}"))?;
-
-        self.eq_y
-            .verify(
-                &self.comm_pk.y,
-                &self.bls_comm_pk_y,
-                &comm_key_tom,
-                &comm_key_bls,
-                &bpp_setup_params,
-                &mut verifier_transcript,
-            )
-            .map_err(|e| anyhow!("Failed to verify eq_y: {e:?}"))?;
-
-        Ok(())
-    }
-}
-
 impl DeviceBinding {
+    #[allow(clippy::too_many_arguments)]
     pub fn new<R: RngCore>(
         rng: &mut R,
         public_key: SecpAffine,
@@ -299,6 +220,87 @@ impl DeviceBinding {
             bls_comm_pk_x: self.bls_comm_pk_x,
             bls_comm_pk_y: self.bls_comm_pk_y,
         }
+    }
+}
+
+impl DeviceBindingPresentation {
+    #[allow(clippy::too_many_arguments)]
+    pub fn verify<R: RngCore>(
+        &self,
+        rng: &mut R,
+        message: SecpFr,
+        comm_key_secp_label: &[u8],
+        comm_key_tom_label: &[u8],
+        comm_key_bls_label: &[u8],
+        bpp_setup_label: &[u8],
+        merlin_transcript_label: &'static [u8],
+        challenge_label: &'static [u8],
+    ) -> anyhow::Result<()> {
+        let comm_key_secp = PedersenCommitmentKeySecp::new::<Blake2b512>(comm_key_secp_label);
+        let comm_key_tom = PedersenCommitmentKeyTom::new::<Blake2b512>(comm_key_tom_label);
+        let comm_key_bls = PedersenCommitmentKeyBls::new::<Blake2b512>(comm_key_bls_label);
+
+        let base = 2;
+        let mut bpp_setup_params =
+            BppSetupParams::<Tom256Affine>::new_for_perfect_range_proof::<Blake2b512>(
+                bpp_setup_label,
+                base,
+                WITNESS_BIT_SIZE as u16,
+                NUM_CHUNKS as u32,
+            );
+        bpp_setup_params.G = comm_key_tom.g;
+        bpp_setup_params.H_vec[0] = comm_key_tom.h;
+
+        let mut verifier_transcript = new_merlin_transcript(merlin_transcript_label);
+        verifier_transcript.append(b"comm_key_secp", &comm_key_secp);
+        verifier_transcript.append(b"comm_key_tom", &comm_key_tom);
+        verifier_transcript.append(b"comm_key_bls", &comm_key_bls);
+        verifier_transcript.append(b"bpp_setup_params", &bpp_setup_params);
+        verifier_transcript.append(b"comm_pk", &self.comm_pk);
+        verifier_transcript.append(b"bls_comm_pk_x", &self.bls_comm_pk_x);
+        verifier_transcript.append(b"bls_comm_pk_y", &self.bls_comm_pk_y);
+        verifier_transcript.append(b"message", &message);
+        self.proof
+            .challenge_contribution(&mut verifier_transcript)
+            .map_err(|e| anyhow!("Failed to challenge contribution: {e:?}"))?;
+
+        let challenge_verifier = verifier_transcript.challenge_scalar(challenge_label);
+
+        self.proof
+            .verify_using_randomized_mult_checker(
+                message,
+                self.comm_pk,
+                &challenge_verifier,
+                comm_key_secp,
+                comm_key_tom,
+                &mut RandomizedMultChecker::<SecpAffine>::new_using_rng(rng),
+                &mut RandomizedMultChecker::<Tom256Affine>::new_using_rng(rng),
+            )
+            .map_err(|e| anyhow!("Failed to verify proof: {e:?}"))?;
+
+        self.eq_x
+            .verify(
+                &self.comm_pk.x,
+                &self.bls_comm_pk_x,
+                &comm_key_tom,
+                &comm_key_bls,
+                &bpp_setup_params,
+                &mut verifier_transcript,
+            )
+            .map_err(|e| anyhow!("Failed to verify eq_x: {e:?}"))?;
+
+        self.eq_y
+            .verify(
+                &self.comm_pk.y,
+                &self.bls_comm_pk_y,
+                &comm_key_tom,
+                &comm_key_bls,
+                &bpp_setup_params,
+                &mut verifier_transcript,
+            )
+            .map_err(|e| anyhow!("Failed to verify eq_y: {e:?}"))?;
+
+        Ok(())
     }
 }
 

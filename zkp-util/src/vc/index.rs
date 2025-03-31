@@ -37,8 +37,8 @@ pub fn index_of_vp(vp_dataset: &Dataset, predicate: &NamedNode) -> usize {
 
     // convert to Vecs
     let disclosed_vec = c14n_disclosed_vc_graphs
-        .into_iter()
-        .map(|(_, v)| v.into())
+        .into_values()
+        .map(|v| v.into())
         .collect::<Vec<VerifiableCredentialTriples>>();
 
     // deserialize proof value into proof and index_map
@@ -50,8 +50,7 @@ pub fn index_of_vp(vp_dataset: &Dataset, predicate: &NamedNode) -> usize {
     let reordered_vc_triples = reorder_vc_triples(&disclosed_vec, &index_map).unwrap();
 
     let index: usize = reordered_vc_triples
-        .iter()
-        .next()
+        .first()
         .unwrap()
         .document
         .iter()
