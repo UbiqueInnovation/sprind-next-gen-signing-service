@@ -10,7 +10,5 @@ pub use bbs::{BbsPlusG1Provider, BbsPlusG2Provider};
 #[cfg(feature = "bbs")]
 pub mod bbs;
 
-#[cfg(feature = "bbs")]
+#[cfg(feature = "zkp")]
 pub mod zkp;
-
-pub mod common;

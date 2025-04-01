@@ -1,97 +1,225 @@
 {{
-    function base64url_encode(str) {
-        const buffer = new TextEncoder().encode(str);
-        return btoa(Array.from(new Uint8Array(buffer), b => String.fromCharCode(b)).join(''))
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=+$/, '');
+    const crypto = require('crypto');
+
+    function base64_encode(bytes) {
+        return btoa(String.fromCharCode(...bytes));
+    }
+
+    function base64url_encode(bytes) {
+        return base64_encode(bytes)
+            .replace(/\+/g, '-')  // Replace '+' with '-'
+            .replace(/\//g, '_')  // Replace '/' with '_'
+            .replace(/=+$/, '');  // Remove padding '='
+    }
+
+    function utf8_encode(str) {
+        return new TextEncoder().encode(str);
     }
 
     exports.base64url_encode = base64url_encode
+    exports.utf8_encode = utf8_encode
 
-    exports.data = base64url_encode(JSON.stringify({
-        "@type": "http://schema.org/Person",
-        "@id": "did:example:johndoe",
-        "http://schema.org/name": "John Doe",
-        "http://schema.org/birthDate": {
-            "@value": "1990-01-01T00:00:00Z",
-            "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
-        },
-        "http://schema.org/telephone": "(425) 123-4567",
-    }))
+    async function generate_ecdsa_keypair() {
+        return await crypto.subtle.generateKey(
+            { name: "ECDSA", namedCurve: "P-256" },
+            true,
+            ["sign", "verify"]
+        )
+    }
 
-    exports.definition = base64url_encode(JSON.stringify([
-        { "key": "@id", "type": "Required" },
-        { "key": "@type", "type": "Required" },
-        { "key": "http://schema.org/name", "type": "Required" },
-        {
-            "id": "https://zkp-ld.org/circuit/ubique/lessThanPublic",
-            "private_key": "http://schema.org/birthDate",
-            "private_var": "a",
-            "public_val": {
-                "@type": "http://www.w3.org/2001/XMLSchema#dateTime",
-                "@value": "2000-01-01T00:00:00Z"
-            },
-            "public_var": "b",
-            "type": "Circuit"
+    async function export_public_key_coords(publicKey) {
+        // Export public key in raw format
+        const rawKey = await crypto.subtle.exportKey("raw", publicKey);
+        const keyBytes = new Uint8Array(rawKey);
+        
+        // First byte is 0x04 (uncompressed format)
+        if (keyBytes[0] !== 0x04) {
+            throw new Error("Unexpected key format");
         }
-    ]))
 
-    exports.issuer_id = "did:example:issuer0"
-    exports.issuer_key_id = encodeURIComponent("did:example:issuer0#bls12_381-g2-pub001")
+        // Extract x and y (each 32 bytes for P-256)
+        const x = keyBytes.slice(1, 33);
+        const y = keyBytes.slice(33, 65);
+
+        return {
+            x: base64_encode(x),
+            y: base64_encode(y)
+        };
+    }
+
+    async function export_public_key(publicKey) {
+        // Export public key in raw format
+        const rawKey = await crypto.subtle.exportKey("raw", publicKey);
+        const keyBytes = new Uint8Array(rawKey);
+
+        return base64url_encode(keyBytes);
+    }
+
+    async function sign_message(privateKey, prehashedData) {
+        const signature = await crypto.subtle.sign(
+            { name: "ECDSA", namedCurve: "P-256", hash: { name: "SHA-256" } },
+            privateKey,
+            prehashedData
+        );
+
+        const sigBytes = new Uint8Array(signature);
+        
+        if (sigBytes.length !== 64) {
+            throw new Error(`Unexpected signature length: ${sigBytes.length}, expected 64 bytes`);
+        }
+
+        return sigBytes;
+    }
+
+    async function sha256_hash(data) {
+        const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+        return new Uint8Array(hashBuffer);
+    }
+
+    exports.generate_ecdsa_keypair = generate_ecdsa_keypair;
+    exports.export_public_key = export_public_key;
+    exports.export_public_key_coords = export_public_key_coords;
+    exports.sign_message = sign_message;
+    exports.sha256_hash = sha256_hash;
 }}
 ###
 GET http://localhost:8000/zkp/keypair
 
 {{
-    exports.issuer_pk = response.parsedBody.public_key
-    exports.issuer_sk = response.parsedBody.secret_key
+    exports.issuer_id = "did:example:issuer0";
+    exports.issuer_key_id = "did:example:issuer0#bls12_381-g2-pub001";
+    exports.issuer_pk = response.parsedBody.public_key;
+    exports.issuer_sk = response.parsedBody.secret_key;
+
+    console.log(`Issuer ID: ${exports.issuer_id}`);
+    console.log(`Issuer Key ID: ${exports.issuer_key_id}`);
+    console.log(`Issuer PK: ${exports.issuer_pk}`);
+    console.log(`Issuer SK: ${exports.issuer_sk}`);
+}}
+
+{{
+    const key = await generate_ecdsa_keypair();
+    const pk_xy = await export_public_key_coords(key.publicKey);
+
+    exports.issuance_params = {
+        "claims": {
+            "@type": "http://schema.org/Person",
+            "@id": "did:example:johndoe",
+            "http://schema.org/name": "John Doe",
+            "http://schema.org/birthDate": {
+                "@value": "1990-01-01T00:00:00Z",
+                "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+            },
+            "http://schema.org/telephone": "(425) 123-4567",
+        },
+        "issuer_pk": issuer_pk,
+        "issuer_sk": issuer_sk,
+        "issuer_id": issuer_id,
+        "issuer_key_id": issuer_key_id,
+        "issuance_date": "2020-01-01T00:00:00Z",
+        "created_date": "2025-01-01T00:00:00Z",
+        "expiration_date": "2030-01-01T00:00:00Z",
+        "device_binding": [pk_xy.x, pk_xy.y]
+    };
+    exports.device_binding_key = key;
 }}
 
 POST http://localhost:8000/zkp/issue
-    ?issuer_pk={{issuer_pk}}
-    &issuer_sk={{issuer_sk}}
-    &issuer_id={{issuer_id}}
-    &issuer_key_id={{issuer_key_id}}
 
-{{data}}
+{{issuance_params}}
 
 {{
-    exports.credential = response.parsedBody.encoded;
+    exports.credential = response.parsedBody;
+    
+    console.log(`Issued credential: ${exports.credential}`);
 }}
 
-GET http://localhost:8000/zkp/proving-keys
-    ?definition={{definition}}
+{{
+    exports.requirements = [
+        { "type": "required", "key": "http://schema.org/name" },
+        {
+            "type": "circuit",
+            "circuit_id": "https://zkp-ld.org/circuit/ubique/lessThanPublic",
+
+            "private_var": "a",
+            "private_key": "http://schema.org/birthDate",
+
+            "public_var": "b",
+            "public_val": [
+                // value
+                "2001-01-01T00:00:00Z",
+                // datatype
+                "http://www.w3.org/2001/XMLSchema#dateTime"
+            ],
+        }
+    ];
+}}
+
+POST http://localhost:8000/zkp/circuit-keys
+
+{{requirements}}
 
 {{
-    exports.verifying_keys = base64url_encode(JSON.stringify(
-        response.parsedBody.verifying_keys
-    ))
-    exports.proving_keys = base64url_encode(JSON.stringify(
-        response.parsedBody.proving_keys
-    ))
+    exports.verifying_keys = response.parsedBody.verifying_keys
+    exports.proving_keys = response.parsedBody.proving_keys
+}}
+
+{{
+    const message = utf8_encode("Hello, World");
+    const message_hash = await sha256_hash(message);
+    const sig = await sign_message(
+        device_binding_key.privateKey, message);
+    
+    exports.presentation_params = {
+        "verifiable_credential": credential,
+        "requirements": requirements,
+        "device_binding": {
+            "public_key": await export_public_key(device_binding_key.publicKey),
+            "message": base64url_encode(message_hash),
+            "message_signature": base64url_encode(sig),
+            "comm_key_secp_label": base64url_encode(utf8_encode("secp")),
+            "comm_key_tom_label": base64url_encode(utf8_encode("tom")),
+            "comm_key_bls_label": base64url_encode(utf8_encode("bls")),
+            "bpp_setup_label": base64url_encode(utf8_encode("bpp")),
+            "merlin_transcript_label": base64url_encode(utf8_encode("transcript")),
+            "challenge_label": base64url_encode(utf8_encode("challenge")),
+        },
+        "proving_keys": proving_keys,
+        "issuer_pk": issuer_pk,
+        "issuer_id": issuer_id,
+        "issuer_key_id": issuer_key_id,
+    };
+    exports.message = base64url_encode(message_hash);
 }}
 
 POST http://localhost:8000/zkp/present
-    ?issuer_pk={{issuer_pk}}
-    &issuer_id={{issuer_id}}
-    &issuer_key_id={{issuer_key_id}}
 
-{
-    "credential": "{{credential}}",
-    "definition": "{{definition}}",
-    "proving_keys": "{{proving_keys}}"
-}
+{{presentation_params}}
 
 {{
-    exports.proof = response.parsedBody.proof
+    exports.verifiable_presentation = response.parsedBody;
+}}
+
+{{
+    exports.verification_params = {
+        "presentation": verifiable_presentation,
+        "requirements": requirements,
+        "device_binding": {
+            "message": message,
+            "comm_key_secp_label": base64url_encode(utf8_encode("secp")),
+            "comm_key_tom_label": base64url_encode(utf8_encode("tom")),
+            "comm_key_bls_label": base64url_encode(utf8_encode("bls")),
+            "bpp_setup_label": base64url_encode(utf8_encode("bpp")),
+            "merlin_transcript_label": base64url_encode(utf8_encode("transcript")),
+            "challenge_label": base64url_encode(utf8_encode("challenge")),
+        },
+        "verifying_keys": verifying_keys,
+        "issuer_pk": issuer_pk,
+        "issuer_id": issuer_id,
+        "issuer_key_id": issuer_key_id,
+    }
 }}
 
 POST http://localhost:8000/zkp/verify
-    ?issuer_pk={{issuer_pk}}
-    &verifying_keys={{verifying_keys}}
-    &definition={{definition}}
-    &issuer_id={{issuer_id}}
-    &issuer_key_id={{issuer_key_id}}
 
-{{proof}}
+{{verification_params}}

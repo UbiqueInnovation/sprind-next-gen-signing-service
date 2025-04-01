@@ -1,239 +1,9 @@
-use rocket::{get, launch, routes, serde::json::Json};
+use rocket::{get, launch, routes};
 
-use next_gen_signatures::{Engine, BASE64_URL_SAFE_NO_PAD};
-use rocket_errors::anyhow;
+pub mod models;
+pub mod routes;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-#[derive(Debug, rocket::serde::Serialize, rocket::serde::Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub struct KeyPair {
-    pub public_key: String,
-    pub secret_key: String,
-}
-
-mod fips204_routes {
-    use super::*;
-    use next_gen_signatures::generate_crypto_routes;
-
-    generate_crypto_routes!(Fips204MlDsa44Provider);
-    generate_crypto_routes!(Fips204MlDsa65Provider);
-    generate_crypto_routes!(Fips204MlDsa87Provider);
-}
-
-mod bbs_plus_routes {
-    use std::collections::BTreeMap;
-
-    use super::*;
-    use next_gen_signatures::{common::CryptoProvider, generate_crypto_routes};
-
-    generate_crypto_routes!(BbsPlusG1Provider);
-    generate_crypto_routes!(BbsPlusG2Provider);
-
-    #[get("/pok/create?<signature>&<messages>&<nonce>&<revealed_indexes>")]
-    #[allow(non_snake_case)]
-    pub fn BbsPlusG1Provider_create_pok_of_sig(
-        signature: String,
-        messages: Vec<String>,
-        nonce: String,
-        revealed_indexes: Vec<usize>,
-    ) -> Json<String> {
-        use next_gen_signatures::{crypto::BbsPlusG1Provider as Provider, BASE64_URL_SAFE_NO_PAD};
-
-        let signature = BASE64_URL_SAFE_NO_PAD.decode(signature).unwrap();
-        let revealed_indexes = revealed_indexes.into_iter().collect();
-        let proof =
-            Provider::create_pok_of_sig(signature, messages, nonce, revealed_indexes).unwrap();
-
-        Json(BASE64_URL_SAFE_NO_PAD.encode(proof))
-    }
-
-    #[get("/pok/verify?<proof>&<revealed_messages>&<public_key>&<nonce>&<message_count>")]
-    #[allow(non_snake_case)]
-    pub fn BbsPlusG1Provider_verify_pok_of_sig(
-        proof: String,
-        revealed_messages: BTreeMap<usize, String>,
-        public_key: String,
-        nonce: String,
-        message_count: u32,
-    ) -> Json<bool> {
-        use next_gen_signatures::{crypto::BbsPlusG1Provider as Provider, BASE64_URL_SAFE_NO_PAD};
-
-        let proof = BASE64_URL_SAFE_NO_PAD.decode(proof).unwrap();
-
-        let public_key = BASE64_URL_SAFE_NO_PAD.decode(public_key).unwrap();
-        let public_key = Provider::pk_from_bytes(public_key).unwrap();
-
-        let revealed_messages = revealed_messages.into_iter().collect();
-
-        let success =
-            Provider::verify_pok_of_sig(proof, revealed_messages, public_key, nonce, message_count)
-                .unwrap();
-
-        Json(success)
-    }
-}
-
-mod zkp_routes {
-    use std::collections::HashMap;
-
-    use next_gen_signatures::{
-        crypto::zkp::{self, Circuits, ProofRequirement},
-        Engine, BASE64_URL_SAFE_NO_PAD,
-    };
-    use rand::rngs::OsRng;
-    use rocket::{get, post, serde::json::Json};
-    use serde_json::{json, Value};
-
-    use crate::KeyPair;
-
-    #[get("/keypair")]
-    pub fn gen_keypair() -> Json<KeyPair> {
-        let mut rng = OsRng;
-
-        let (pk, sk) = zkp::generate_keypair(&mut rng);
-        let key_pair = KeyPair {
-            public_key: pk,
-            secret_key: sk,
-        };
-
-        Json(key_pair)
-    }
-
-    #[post(
-        "/issue?<issuer_pk>&<issuer_sk>&<issuer_id>&<issuer_key_id>&<expiry_months>",
-        data = "<data>"
-    )]
-    pub async fn issue(
-        data: String,
-        issuer_pk: String,
-        issuer_sk: String,
-        issuer_id: String,
-        issuer_key_id: String,
-        expiry_months: Option<u32>,
-    ) -> Json<Value> {
-        let mut rng = OsRng;
-
-        let data = BASE64_URL_SAFE_NO_PAD.decode(&data).unwrap();
-        let data = String::from_utf8(data).unwrap();
-        let data = serde_json::from_str::<Value>(&data).unwrap();
-
-        let expiry_months = expiry_months.unwrap_or(36);
-
-        let credential = zkp::issue(
-            &mut rng,
-            data,
-            issuer_pk,
-            issuer_sk,
-            &issuer_id,
-            &issuer_key_id,
-            expiry_months,
-        )
-        .await;
-
-        Json(credential.serialize())
-    }
-
-    #[get("/proving-keys?<definition>")]
-    pub fn gen_proving_keys(definition: String) -> Json<Circuits> {
-        let mut rng = OsRng;
-
-        let reqs = {
-            let bytes = BASE64_URL_SAFE_NO_PAD.decode(definition).unwrap();
-            let str = String::from_utf8(bytes).unwrap();
-            serde_json::from_str::<Vec<ProofRequirement>>(&str).unwrap()
-        };
-
-        let circuits = zkp::circuits::generate_circuits(&mut rng, &reqs);
-
-        Json(circuits)
-    }
-
-    #[post("/present?<issuer_pk>&<issuer_id>&<issuer_key_id>", data = "<data>")]
-    pub async fn present(
-        data: Json<Value>,
-        issuer_pk: String,
-        issuer_id: String,
-        issuer_key_id: String,
-    ) -> Json<Value> {
-        let mut rng = OsRng;
-
-        let credential = data["credential"].as_str().unwrap().to_string();
-        let definition = data["definition"].as_str().unwrap().to_string();
-        let proving_keys = data["proving_keys"].as_str().unwrap().to_string();
-
-        let credential = zkp::Credential::deserialize_encoded(&credential);
-
-        let reqs = {
-            let bytes = BASE64_URL_SAFE_NO_PAD.decode(definition).unwrap();
-            let str = String::from_utf8(bytes).unwrap();
-            serde_json::from_str::<Vec<ProofRequirement>>(&str).unwrap()
-        };
-
-        let proving_keys = {
-            let bytes = BASE64_URL_SAFE_NO_PAD.decode(proving_keys).unwrap();
-            let str = String::from_utf8(bytes).unwrap();
-            serde_json::from_str::<HashMap<String, String>>(&str).unwrap()
-        };
-
-        let pres = zkp::present(
-            &mut rng,
-            credential,
-            &reqs,
-            &proving_keys,
-            issuer_pk,
-            &issuer_id,
-            &issuer_key_id,
-        )
-        .await;
-
-        Json(json!({
-            "proof": pres.serialize(),
-        }))
-    }
-
-    #[post(
-        "/verify?<issuer_pk>&<verifying_keys>&<definition>&<issuer_id>&<issuer_key_id>",
-        data = "<proof>"
-    )]
-    pub async fn verify(
-        proof: String,
-        issuer_pk: String,
-        verifying_keys: String,
-        definition: String,
-        issuer_id: String,
-        issuer_key_id: String,
-    ) -> Json<Value> {
-        let mut rng = OsRng;
-
-        let pres = zkp::Presentation::deserialize(&proof);
-
-        let verifying_keys = {
-            let bytes = BASE64_URL_SAFE_NO_PAD.decode(verifying_keys).unwrap();
-            let str = String::from_utf8(bytes).unwrap();
-            serde_json::from_str::<HashMap<String, String>>(&str).unwrap()
-        };
-
-        let reqs = {
-            let bytes = BASE64_URL_SAFE_NO_PAD.decode(definition).unwrap();
-            let str = String::from_utf8(bytes).unwrap();
-            serde_json::from_str::<Vec<ProofRequirement>>(&str).unwrap()
-        };
-
-        let json = zkp::verify(
-            &mut rng,
-            pres,
-            issuer_pk,
-            verifying_keys,
-            &reqs,
-            &issuer_id,
-            &issuer_key_id,
-        )
-        .await;
-
-        Json(json)
-    }
-}
 
 #[get("/")]
 fn index() -> String {
@@ -247,74 +17,90 @@ fn rocket() -> _ {
         .mount(
             "/fips204/44",
             routes![
-                fips204_routes::Fips204MlDsa44Provider_gen_keypair,
-                fips204_routes::Fips204MlDsa44Provider_sign,
-                fips204_routes::Fips204MlDsa44Provider_verify
+                routes::fips204::Fips204MlDsa44Provider_gen_keypair,
+                routes::fips204::Fips204MlDsa44Provider_sign,
+                routes::fips204::Fips204MlDsa44Provider_verify
             ],
         )
         .mount(
             "/fips204/65",
             routes![
-                fips204_routes::Fips204MlDsa65Provider_gen_keypair,
-                fips204_routes::Fips204MlDsa65Provider_sign,
-                fips204_routes::Fips204MlDsa65Provider_verify
+                routes::fips204::Fips204MlDsa65Provider_gen_keypair,
+                routes::fips204::Fips204MlDsa65Provider_sign,
+                routes::fips204::Fips204MlDsa65Provider_verify
             ],
         )
         .mount(
             "/fips204/87",
             routes![
-                fips204_routes::Fips204MlDsa87Provider_gen_keypair,
-                fips204_routes::Fips204MlDsa87Provider_sign,
-                fips204_routes::Fips204MlDsa87Provider_verify
+                routes::fips204::Fips204MlDsa87Provider_gen_keypair,
+                routes::fips204::Fips204MlDsa87Provider_sign,
+                routes::fips204::Fips204MlDsa87Provider_verify
             ],
         )
         .mount(
             "/bbs+/g1/",
             routes![
-                bbs_plus_routes::BbsPlusG1Provider_gen_keypair,
-                bbs_plus_routes::BbsPlusG1Provider_sign,
-                bbs_plus_routes::BbsPlusG1Provider_verify,
-                bbs_plus_routes::BbsPlusG1Provider_create_pok_of_sig,
-                bbs_plus_routes::BbsPlusG1Provider_verify_pok_of_sig,
+                routes::bbs_plus::BbsPlusG1Provider_gen_keypair,
+                routes::bbs_plus::BbsPlusG1Provider_sign,
+                routes::bbs_plus::BbsPlusG1Provider_verify,
+                routes::bbs_plus::BbsPlusG1Provider_create_pok_of_sig,
+                routes::bbs_plus::BbsPlusG1Provider_verify_pok_of_sig,
             ],
         )
         .mount(
             "/bbs+/g2/",
             routes![
-                bbs_plus_routes::BbsPlusG2Provider_gen_keypair,
-                bbs_plus_routes::BbsPlusG2Provider_sign,
-                bbs_plus_routes::BbsPlusG2Provider_verify,
+                routes::bbs_plus::BbsPlusG2Provider_gen_keypair,
+                routes::bbs_plus::BbsPlusG2Provider_sign,
+                routes::bbs_plus::BbsPlusG2Provider_verify,
             ],
         )
         .mount(
             "/zkp/",
             routes![
-                zkp_routes::gen_keypair,
-                zkp_routes::issue,
-                zkp_routes::gen_proving_keys,
-                zkp_routes::present,
-                zkp_routes::verify
+                routes::zkp::gen_keypair,
+                routes::zkp::issue,
+                routes::zkp::gen_proving_keys,
+                routes::zkp::present,
+                routes::zkp::verify
             ],
         )
 }
 
 #[cfg(test)]
 mod test {
-    use crate::VERSION;
+    use crate::{
+        models::{
+            common::KeyPair,
+            zkp::{CircuitKeys, VerifiableCredential, VerifiablePresentation},
+        },
+        VERSION,
+    };
 
     use super::*;
+    use ark_ec::{AffineRepr, CurveGroup};
+    use ark_ff::{BigInteger, PrimeField};
+    use ark_std::UniformRand;
+    use next_gen_signatures::{
+        crypto::zkp::{serialize_public_key_uncompressed, serialize_signature},
+        Engine, BASE64_STANDARD, BASE64_URL_SAFE_NO_PAD,
+    };
+    use rand_core::OsRng;
     use rocket::local::blocking::Client;
-    use rocket::{http::Status, uri};
+    use rocket::{
+        http::{Header, Status},
+        uri,
+    };
+    use serde_json::{json, Value};
+    use zkp_util::{device_binding::SecpFr, EcdsaSignature, SECP_GEN};
 
     macro_rules! test_roundtrip_fips204 {
         ($v:expr) => {
             paste::item! {
                 #[test]
                 fn [<test_roundtrip_fips204_ $v>]() {
-                    use crate::KeyPair;
-                    use next_gen_signatures::Engine;
-
-                    let message = crate::BASE64_URL_SAFE_NO_PAD.encode("Hello, World!");
+                    let message = BASE64_URL_SAFE_NO_PAD.encode("Hello, World!");
 
                     let client = Client::tracked(rocket()).expect("valid rocket instance");
                     let response = client
@@ -363,11 +149,8 @@ mod test {
             paste::item! {
                 #[test]
                 fn [<test_roundtrip_bbs_plus_ $g>]() {
-                    use next_gen_signatures::Engine;
-                    use crate::KeyPair;
-
-                    let nonce = next_gen_signatures::BASE64_URL_SAFE_NO_PAD.encode("nonce");
-                    let message = next_gen_signatures::BASE64_URL_SAFE_NO_PAD.encode("Hello, World!");
+                    let nonce = BASE64_URL_SAFE_NO_PAD.encode("nonce");
+                    let message = BASE64_URL_SAFE_NO_PAD.encode("Hello, World!");
 
                     let client = Client::tracked(rocket()).expect("valid rocket instance");
                     let response = client
@@ -498,5 +281,154 @@ mod test {
         let success = response.into_json::<bool>().unwrap();
 
         assert!(success);
+    }
+
+    #[test]
+    fn test_roundtrip_zkp() {
+        let mut rng = OsRng;
+
+        // device binding
+        let db_sk = SecpFr::rand(&mut rng);
+        let db_pk = (SECP_GEN * db_sk).into_affine();
+        let db_pk_x = BASE64_STANDARD.encode(db_pk.x().unwrap().into_bigint().to_bytes_be());
+        let db_pk_y = BASE64_STANDARD.encode(db_pk.y().unwrap().into_bigint().to_bytes_be());
+
+        let client = Client::tracked(rocket()).unwrap();
+        let response = client.get("/zkp/keypair").dispatch();
+        assert_eq!(response.status(), Status::Ok);
+
+        let issuer = response.into_json::<KeyPair>().unwrap();
+        let issuer_id = "did:example:issuer0";
+        let issuer_key_id = "did:example:issuer0#bls12_381-g2-pub001";
+
+        let response = client
+            .post("/zkp/issue")
+            .body(
+                json!({
+                    "claims": {
+                    "@type": "http://schema.org/Person",
+                    "@id": "did:example:johndoe",
+                    "http://schema.org/name": "John Doe",
+                    "http://schema.org/birthDate": {
+                        "@value": "1990-01-01T00:00:00Z",
+                        "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+                    },
+                    "http://schema.org/telephone": "(425) 123-4567",
+                    },
+                    "issuer_pk": issuer.public_key,
+                    "issuer_sk": issuer.secret_key,
+                    "issuer_id": issuer_id,
+                    "issuer_key_id": issuer_key_id,
+                    "issuance_date": "2020-01-01T00:00:00Z",
+                    "created_date": "2025-01-01T00:00:00Z",
+                    "expiration_date": "2030-01-01T00:00:00Z",
+                    "device_binding": [db_pk_x, db_pk_y]
+                })
+                .to_string(),
+            )
+            .header(Header::new("Content-Type", "application/json"))
+            .dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+
+        let vc = response.into_json::<VerifiableCredential>().unwrap();
+
+        let requirements = json!([
+            { "type": "required", "key": "http://schema.org/name" },
+            {
+                "type": "circuit",
+                "circuit_id": "https://zkp-ld.org/circuit/ubique/lessThanPublic",
+
+                "private_var": "a",
+                "private_key": "http://schema.org/birthDate",
+
+                "public_var": "b",
+                "public_val": [
+                    // value
+                    "2001-01-01T00:00:00Z",
+                    // datatype
+                    "http://www.w3.org/2001/XMLSchema#dateTime"
+                ],
+            }
+        ]);
+
+        let response = client
+            .post("/zkp/circuit-keys")
+            .body(requirements.to_string())
+            .header(Header::new("Content-Type", "application/json"))
+            .dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+
+        let circuit_keys = response.into_json::<CircuitKeys>().unwrap();
+
+        let message = SecpFr::rand(&mut rng);
+        let message_signature = EcdsaSignature::new_prehashed(&mut rng, message, db_sk);
+
+        let response = client
+            .post("/zkp/present")
+            .body(
+                json!({
+                    "verifiable_credential": vc,
+                    "requirements": requirements,
+                    "device_binding": {
+                        "public_key": BASE64_URL_SAFE_NO_PAD.encode(
+                            serialize_public_key_uncompressed(&db_pk)),
+                        "message": BASE64_URL_SAFE_NO_PAD.encode(
+                            message.into_bigint().to_bytes_be()),
+                        "message_signature": BASE64_URL_SAFE_NO_PAD
+                            .encode(serialize_signature(&message_signature)),
+                        "comm_key_secp_label": BASE64_URL_SAFE_NO_PAD.encode(b"secp"),
+                        "comm_key_tom_label": BASE64_URL_SAFE_NO_PAD.encode(b"tom"),
+                        "comm_key_bls_label": BASE64_URL_SAFE_NO_PAD.encode(b"bls"),
+                        "bpp_setup_label": BASE64_URL_SAFE_NO_PAD.encode(b"bpp"),
+                        "merlin_transcript_label": BASE64_URL_SAFE_NO_PAD.encode(b"transcript"),
+                        "challenge_label": BASE64_URL_SAFE_NO_PAD.encode(b"challenge"),
+                    },
+                    "proving_keys": circuit_keys.proving_keys,
+                    "issuer_pk": issuer.public_key,
+                    "issuer_id": issuer_id,
+                    "issuer_key_id": issuer_key_id,
+                })
+                .to_string(),
+            )
+            .header(Header::new("Content-Type", "application/json"))
+            .dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+
+        let vp = response.into_json::<VerifiablePresentation>().unwrap();
+
+        let response = client
+            .post("/zkp/verify")
+            .body(
+                json!({
+                    "presentation": vp,
+                    "requirements": requirements,
+                    "device_binding": {
+                        "message": BASE64_URL_SAFE_NO_PAD.encode(
+                            message.into_bigint().to_bytes_be()),
+                        "comm_key_secp_label": BASE64_URL_SAFE_NO_PAD.encode(b"secp"),
+                        "comm_key_tom_label": BASE64_URL_SAFE_NO_PAD.encode(b"tom"),
+                        "comm_key_bls_label": BASE64_URL_SAFE_NO_PAD.encode(b"bls"),
+                        "bpp_setup_label": BASE64_URL_SAFE_NO_PAD.encode(b"bpp"),
+                        "merlin_transcript_label": BASE64_URL_SAFE_NO_PAD.encode(b"transcript"),
+                        "challenge_label": BASE64_URL_SAFE_NO_PAD.encode(b"challenge"),
+                    },
+                    "verifying_keys": circuit_keys.verifying_keys,
+                    "issuer_pk": issuer.public_key,
+                    "issuer_id": issuer_id,
+                    "issuer_key_id": issuer_key_id,
+                })
+                .to_string(),
+            )
+            .header(Header::new("Content-Type", "application/json"))
+            .dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+
+        let disclosed = response.into_json::<Value>().unwrap();
+
+        assert_eq!(disclosed["http://schema.org/name"], "John Doe");
     }
 }
