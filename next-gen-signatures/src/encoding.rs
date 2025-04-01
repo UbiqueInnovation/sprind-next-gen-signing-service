@@ -12,6 +12,6 @@ pub mod base64url {
         let base64 = String::deserialize(d)?;
         BASE64_STANDARD_NO_PAD
             .decode(base64.as_bytes())
-            .map_err(|e| serde::de::Error::custom(e))
+            .map_err(serde::de::Error::custom)
     }
 }

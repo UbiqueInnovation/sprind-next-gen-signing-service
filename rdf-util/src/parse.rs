@@ -1,9 +1,12 @@
-use std::collections::{BTreeMap, HashSet};
+use std::{
+    collections::{BTreeMap, HashSet},
+    str::FromStr,
+};
 
 use oxrdf::{vocab::xsd, Dataset, Graph, Subject, Term, Triple};
 use oxttl::{NQuadsParser, NTriplesParser, TurtleParseError};
 
-use crate::{value::ObjectId, Value};
+use crate::{value::ObjectId, MultiGraph, Value};
 
 pub fn from_str<S: AsRef<str>>(str: S) -> Result<Value, TurtleParseError> {
     Ok(Value::from(
@@ -149,5 +152,17 @@ impl From<&Graph> for Value {
             .map(|t| t.into_owned())
             .collect::<Vec<Triple>>();
         Self::from(triples)
+    }
+}
+
+impl FromStr for MultiGraph {
+    type Err = TurtleParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let quads = NQuadsParser::new()
+            .for_reader(s.as_bytes())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(Self { quads })
     }
 }

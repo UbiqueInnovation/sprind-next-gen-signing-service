@@ -1,12 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
 use oxrdf::{Dataset, GraphName, Quad, Subject, Term, Triple};
-use oxttl::{NQuadsParser, TurtleParseError};
 
 use crate::Value;
 
 pub struct MultiGraph {
-    quads: Vec<Quad>,
+    pub(crate) quads: Vec<Quad>,
 }
 
 impl MultiGraph {
@@ -16,14 +15,6 @@ impl MultiGraph {
             .map(|q| q.into_owned())
             .collect::<Vec<_>>();
         Self { quads }
-    }
-
-    pub fn from_str<S: AsRef<str>>(str: S) -> Result<Self, TurtleParseError> {
-        let quads = NQuadsParser::new()
-            .for_reader(str.as_ref().as_bytes())
-            .collect::<Result<Vec<_>, _>>()?;
-
-        Ok(Self { quads })
     }
 
     pub fn graphs(&self) -> HashMap<GraphName, Vec<Quad>> {

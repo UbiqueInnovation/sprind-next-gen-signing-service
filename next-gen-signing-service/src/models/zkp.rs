@@ -32,7 +32,6 @@ pub struct IssuanceParams {
     pub device_binding: Option<(String, String)>,
 }
 
-///
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 #[serde(crate = "rocket::serde", tag = "type")]
 pub enum Requirement {

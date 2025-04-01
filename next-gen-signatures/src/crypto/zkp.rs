@@ -127,6 +127,7 @@ async fn parse_json_ld(data: &str) -> anyhow::Result<RdfValue> {
     rdf_util::from_str(rdf).map_err(|e| e.into())
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn issue<R: RngCore>(
     rng: &mut R,
     claims: JsonValue,
@@ -141,9 +142,9 @@ pub async fn issue<R: RngCore>(
 ) -> anyhow::Result<String> {
     let claims = parse_json_ld(&claims.to_string()).await?;
 
-    let issuance_date = issuance_date.map(|d| DateTime::from_str(d)).transpose()?;
-    let created_date = created_date.map(|d| DateTime::from_str(d)).transpose()?;
-    let expiration_date = expiration_date.map(|d| DateTime::from_str(d)).transpose()?;
+    let issuance_date = issuance_date.map(DateTime::from_str).transpose()?;
+    let created_date = created_date.map(DateTime::from_str).transpose()?;
+    let expiration_date = expiration_date.map(DateTime::from_str).transpose()?;
 
     // Change bases
     let device_binding = if let Some((x, y)) = device_binding {
@@ -215,6 +216,7 @@ pub struct DBRequirement {
     pub challenge_label: &'static [u8],
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn present<R: RngCore>(
     rng: &mut R,
     vc: String,
@@ -319,6 +321,7 @@ pub struct DBVerificationParams {
     pub challenge_label: &'static [u8],
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn verify<R: RngCore>(
     rng: &mut R,
     presentation: String,
@@ -334,7 +337,7 @@ pub fn verify<R: RngCore>(
             BASE64_URL_SAFE_NO_PAD.decode(presentation)?,
         )?)?;
 
-        let proof = rdf_util::MultiGraph::from_str(String::from_utf8(
+        let proof = rdf_util::MultiGraph::from_str(&String::from_utf8(
             BASE64_URL_SAFE_NO_PAD
                 .decode(json["proof"].as_str().context("No proof value found!")?)?,
         )?)?;
