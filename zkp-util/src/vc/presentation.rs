@@ -247,7 +247,6 @@ pub fn present<R: RngCore>(
         Some(statements),
         Some(meta_statements),
         Some(witnesses),
-        None,
     )?;
 
     Ok(VerifiablePresentation {

@@ -4022,6 +4022,7 @@ dependencies = [
 [[package]]
 name = "rdf-proofs"
 version = "0.11.0"
+source = "git+https://github.com/UbiqueInnovation/rdf-proofs?branch=feature%2Fdevice-binding#65cb82f725958dcd91f0ba36732e479a4b3b0b8d"
 dependencies = [
  "ark-bls12-381",
  "ark-ec",
