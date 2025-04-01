@@ -110,12 +110,8 @@ pub struct DBPresentationParams {
     #[serde(with = "base64url")]
     pub message: Vec<u8>,
 
-    // TODO: Is there a common way to serialize the signature?
     #[serde(with = "base64url")]
-    pub message_signature_rand_x_coord: Vec<u8>,
-
-    #[serde(with = "base64url")]
-    pub message_signature_response: Vec<u8>,
+    pub message_signature: Vec<u8>,
 
     #[serde(with = "base64url")]
     pub comm_key_secp_label: Vec<u8>,

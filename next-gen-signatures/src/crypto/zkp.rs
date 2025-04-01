@@ -64,6 +64,46 @@ pub fn deserialize_public_key_uncompressed(bytes: &[u8]) -> anyhow::Result<SecpA
     Ok(SecpAffine::new_unchecked(x, y))
 }
 
+fn pad_vec_front(vec: &mut Vec<u8>, target_len: usize) {
+    // If the vector is shorter than the target length, pad with zeros at the front
+    let padding_needed = target_len.saturating_sub(vec.len());
+
+    // Insert `0`s at the beginning of the vector
+    vec.splice(0..0, vec![0; padding_needed]);
+}
+
+pub fn serialize_signature(signature: &EcdsaSignature) -> Vec<u8> {
+    let mut rand_x_coord = signature.rand_x_coord.into_bigint().to_bytes_be();
+    let mut response = signature.response.into_bigint().to_bytes_be();
+
+    pad_vec_front(&mut rand_x_coord, 32);
+    pad_vec_front(&mut response, 32);
+
+    let mut result = rand_x_coord;
+    result.extend_from_slice(&response);
+    result
+}
+
+pub fn deserialize_signature(serialized: &[u8]) -> anyhow::Result<EcdsaSignature> {
+    anyhow::ensure!(
+        serialized.len() == 64,
+        "Invalid serialized length, expected 64 bytes."
+    );
+
+    // Extract the two 32-byte components from the serialized data
+    let (rand_x_coord_bytes, response_bytes) = serialized.split_at(32);
+
+    // Convert the byte slices back to BigInt
+    let rand_x_coord = SecpFr::from(BigUint::from_bytes_be(rand_x_coord_bytes));
+    let response = SecpFr::from(BigUint::from_bytes_be(response_bytes));
+
+    // Create and return the EcdsaSignature struct
+    Ok(EcdsaSignature {
+        rand_x_coord,
+        response,
+    })
+}
+
 pub use zkp_util::keypair::generate_keypair;
 
 async fn parse_json_ld(data: &str) -> anyhow::Result<RdfValue> {
@@ -155,12 +195,8 @@ pub struct DBRequirement {
     #[serde(with = "crate::encoding::base64url")]
     pub message: Vec<u8>,
 
-    // TODO: Is there a common way to serialize the signature?
     #[serde(with = "crate::encoding::base64url")]
-    pub message_signature_rand_x_coord: Vec<u8>,
-
-    #[serde(with = "crate::encoding::base64url")]
-    pub message_signature_response: Vec<u8>,
+    pub message_signature: Vec<u8>,
 
     #[serde(with = "crate::encoding::base64url")]
     pub comm_key_secp_label: Vec<u8>,
@@ -211,10 +247,7 @@ pub fn present<R: RngCore>(
     let device_binding = if let Some(db) = device_binding {
         let public_key = deserialize_public_key_uncompressed(&db.public_key)?;
         let message = SecpFr::from(BigUint::from_bytes_be(&db.message));
-        let message_signature = EcdsaSignature {
-            rand_x_coord: SecpFr::from(BigUint::from_bytes_be(&db.message_signature_rand_x_coord)),
-            response: SecpFr::from(BigUint::from_bytes_be(&db.message_signature_response)),
-        };
+        let message_signature = deserialize_signature(&db.message_signature)?;
 
         let valid = message_signature.verify_prehashed(message, public_key);
         assert!(valid, "invalid sig");
@@ -227,7 +260,6 @@ pub fn present<R: RngCore>(
             comm_key_tom_label: db.comm_key_tom_label,
             comm_key_bls_label: db.comm_key_bls_label,
             bpp_setup_label: db.bpp_setup_label,
-            // TODO: Figure out if this needs the 'static lifetime
             merlin_transcript_label: db.merlin_transcript_label,
             challenge_label: db.challenge_label,
         })
@@ -363,7 +395,7 @@ mod tests {
     };
 
     use crate::crypto::zkp::{
-        serialize_public_key_uncompressed, DBRequirement, DBVerificationParams,
+        serialize_public_key_uncompressed, serialize_signature, DBRequirement, DBVerificationParams,
     };
 
     #[tokio::test]
@@ -431,11 +463,7 @@ mod tests {
         let device_binding = Some(DBRequirement {
             public_key: serialize_public_key_uncompressed(&db_pk),
             message: message.into_bigint().to_bytes_be(),
-            message_signature_rand_x_coord: message_signature
-                .rand_x_coord
-                .into_bigint()
-                .to_bytes_be(),
-            message_signature_response: message_signature.response.into_bigint().to_bytes_be(),
+            message_signature: serialize_signature(&message_signature),
             comm_key_secp_label: b"secp".to_vec(),
             comm_key_tom_label: b"tom".to_vec(),
             comm_key_bls_label: b"bls".to_vec(),

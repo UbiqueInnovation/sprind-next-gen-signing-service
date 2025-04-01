@@ -83,8 +83,8 @@ mod test {
     use ark_ff::{BigInteger, PrimeField};
     use ark_std::UniformRand;
     use next_gen_signatures::{
-        crypto::zkp::serialize_public_key_uncompressed, Engine, BASE64_STANDARD,
-        BASE64_URL_SAFE_NO_PAD,
+        crypto::zkp::{serialize_public_key_uncompressed, serialize_signature},
+        Engine, BASE64_STANDARD, BASE64_URL_SAFE_NO_PAD,
     };
     use rand_core::OsRng;
     use rocket::local::blocking::Client;
@@ -376,16 +376,8 @@ mod test {
                             serialize_public_key_uncompressed(&db_pk)),
                         "message": BASE64_URL_SAFE_NO_PAD.encode(
                             message.into_bigint().to_bytes_be()),
-                        "message_signature_rand_x_coord": BASE64_URL_SAFE_NO_PAD
-                            .encode(message_signature
-                                .rand_x_coord
-                                .into_bigint()
-                                .to_bytes_be()),
-                        "message_signature_response": BASE64_URL_SAFE_NO_PAD
-                            .encode(message_signature
-                                .response
-                                .into_bigint()
-                                .to_bytes_be()),
+                        "message_signature": BASE64_URL_SAFE_NO_PAD
+                            .encode(serialize_signature(&message_signature)),
                         "comm_key_secp_label": BASE64_URL_SAFE_NO_PAD.encode(b"secp"),
                         "comm_key_tom_label": BASE64_URL_SAFE_NO_PAD.encode(b"tom"),
                         "comm_key_bls_label": BASE64_URL_SAFE_NO_PAD.encode(b"bls"),

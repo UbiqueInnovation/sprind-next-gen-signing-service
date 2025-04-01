@@ -98,8 +98,7 @@ pub fn present(
     let device_binding = params.device_binding.map(|db| zkp::DBRequirement {
         public_key: db.public_key,
         message: db.message,
-        message_signature_rand_x_coord: db.message_signature_rand_x_coord,
-        message_signature_response: db.message_signature_response,
+        message_signature: db.message_signature,
         comm_key_secp_label: db.comm_key_secp_label,
         comm_key_tom_label: db.comm_key_tom_label,
         comm_key_bls_label: db.comm_key_bls_label,
