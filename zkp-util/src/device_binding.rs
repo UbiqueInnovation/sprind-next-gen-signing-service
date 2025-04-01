@@ -37,6 +37,7 @@ pub const DEVICE_BINDING_KEY_X: &str = "https://zkp-ld.org/deviceBinding#x";
 pub const DEVICE_BINDING_KEY_Y: &str = "https://zkp-ld.org/deviceBinding#y";
 
 pub type SecpFr = ark_secp256r1::Fr;
+pub type SecpFq = ark_secp256r1::Fq;
 pub type SecpAffine = ark_secp256r1::Affine;
 pub type BlsFr = ark_bls12_381::Fr;
 
@@ -304,7 +305,7 @@ impl DeviceBindingPresentation {
     }
 }
 
-pub fn change_field(p: &Fq) -> BlsFr {
+pub fn change_field(p: &SecpFq) -> BlsFr {
     from_base_field_to_scalar_field::<Fq, BlsFr>(p)
 }
 

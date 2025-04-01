@@ -1,297 +1,9 @@
-use rocket::{get, launch, routes, serde::json::Json};
+use rocket::{get, launch, routes};
 
-use next_gen_signatures::{Engine, BASE64_URL_SAFE_NO_PAD};
-use rocket_errors::anyhow;
+pub mod models;
+pub mod routes;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-#[derive(Debug, rocket::serde::Serialize, rocket::serde::Deserialize)]
-#[serde(crate = "rocket::serde")]
-pub struct KeyPair {
-    pub public_key: String,
-    pub secret_key: String,
-}
-
-mod fips204_routes {
-    use super::*;
-    use next_gen_signatures::generate_crypto_routes;
-
-    generate_crypto_routes!(Fips204MlDsa44Provider);
-    generate_crypto_routes!(Fips204MlDsa65Provider);
-    generate_crypto_routes!(Fips204MlDsa87Provider);
-}
-
-mod bbs_plus_routes {
-    use std::collections::BTreeMap;
-
-    use super::*;
-    use next_gen_signatures::{common::CryptoProvider, generate_crypto_routes};
-
-    generate_crypto_routes!(BbsPlusG1Provider);
-    generate_crypto_routes!(BbsPlusG2Provider);
-
-    #[get("/pok/create?<signature>&<messages>&<nonce>&<revealed_indexes>")]
-    #[allow(non_snake_case)]
-    pub fn BbsPlusG1Provider_create_pok_of_sig(
-        signature: String,
-        messages: Vec<String>,
-        nonce: String,
-        revealed_indexes: Vec<usize>,
-    ) -> Json<String> {
-        use next_gen_signatures::{crypto::BbsPlusG1Provider as Provider, BASE64_URL_SAFE_NO_PAD};
-
-        let signature = BASE64_URL_SAFE_NO_PAD.decode(signature).unwrap();
-        let revealed_indexes = revealed_indexes.into_iter().collect();
-        let proof =
-            Provider::create_pok_of_sig(signature, messages, nonce, revealed_indexes).unwrap();
-
-        Json(BASE64_URL_SAFE_NO_PAD.encode(proof))
-    }
-
-    #[get("/pok/verify?<proof>&<revealed_messages>&<public_key>&<nonce>&<message_count>")]
-    #[allow(non_snake_case)]
-    pub fn BbsPlusG1Provider_verify_pok_of_sig(
-        proof: String,
-        revealed_messages: BTreeMap<usize, String>,
-        public_key: String,
-        nonce: String,
-        message_count: u32,
-    ) -> Json<bool> {
-        use next_gen_signatures::{crypto::BbsPlusG1Provider as Provider, BASE64_URL_SAFE_NO_PAD};
-
-        let proof = BASE64_URL_SAFE_NO_PAD.decode(proof).unwrap();
-
-        let public_key = BASE64_URL_SAFE_NO_PAD.decode(public_key).unwrap();
-        let public_key = Provider::pk_from_bytes(public_key).unwrap();
-
-        let revealed_messages = revealed_messages.into_iter().collect();
-
-        let success =
-            Provider::verify_pok_of_sig(proof, revealed_messages, public_key, nonce, message_count)
-                .unwrap();
-
-        Json(success)
-    }
-}
-
-/*
-mod zkp_routes {
-    use std::collections::HashMap;
-
-    use next_gen_signatures::{
-        crypto::zkp::{self, Circuits, DeviceBindingRequirement, ProofRequirement},
-        Engine, BASE64_URL_SAFE_NO_PAD,
-    };
-    use rand::rngs::OsRng;
-    use rocket::{get, post, serde::json::Json};
-    use serde_json::{json, Value};
-
-    use crate::KeyPair;
-
-    #[get("/keypair")]
-    pub fn gen_keypair() -> Json<KeyPair> {
-        let mut rng = OsRng;
-
-        let (pk, sk) = zkp::generate_keypair(&mut rng);
-        let key_pair = KeyPair {
-            public_key: pk,
-            secret_key: sk,
-        };
-
-        Json(key_pair)
-    }
-
-    #[post(
-        "/issue?<issuer_pk>&<issuer_sk>&<issuer_id>&<issuer_key_id>&<expiry_months>&<device_binding_x>&<device_binding_y>",
-        data = "<data>"
-    )]
-    pub async fn issue(
-        data: String,
-        issuer_pk: String,
-        issuer_sk: String,
-        issuer_id: String,
-        issuer_key_id: String,
-        expiry_months: Option<u32>,
-        device_binding_x: Option<String>,
-        device_binding_y: Option<String>,
-    ) -> Json<Value> {
-        let mut rng = OsRng;
-
-        let data = BASE64_URL_SAFE_NO_PAD.decode(&data).unwrap();
-        let data = String::from_utf8(data).unwrap();
-        let data = serde_json::from_str::<Value>(&data).unwrap();
-
-        let expiry_months = expiry_months.unwrap_or(36);
-
-        let credential = if let (Some(device_binding_x), Some(device_binding_y)) =
-            (device_binding_x, device_binding_y)
-        {
-            zkp::issue_with_device_binding(
-                &mut rng,
-                data,
-                issuer_pk,
-                issuer_sk,
-                &issuer_id,
-                &issuer_key_id,
-                expiry_months,
-                (device_binding_x, device_binding_y),
-            )
-            .await
-        } else {
-            zkp::issue(
-                &mut rng,
-                data,
-                issuer_pk,
-                issuer_sk,
-                &issuer_id,
-                &issuer_key_id,
-                expiry_months,
-            )
-            .await
-        };
-
-        Json(credential.serialize())
-    }
-
-    #[get("/proving-keys?<definition>")]
-    pub fn gen_proving_keys(definition: String) -> Json<Circuits> {
-        let mut rng = OsRng;
-
-        let reqs = {
-            let bytes = BASE64_URL_SAFE_NO_PAD.decode(definition).unwrap();
-            let str = String::from_utf8(bytes).unwrap();
-            serde_json::from_str::<Vec<ProofRequirement>>(&str).unwrap()
-        };
-
-        let circuits = zkp::circuits::generate_circuits(&mut rng, &reqs);
-
-        Json(circuits)
-    }
-
-    #[post(
-        "/present?<issuer_pk>&<issuer_id>&<issuer_key_id>&<device_binding>",
-        data = "<data>"
-    )]
-    pub async fn present(
-        data: Json<Value>,
-        issuer_pk: String,
-        issuer_id: String,
-        issuer_key_id: String,
-        device_binding: Option<String>,
-    ) -> Json<Value> {
-        let mut rng = OsRng;
-
-        let credential = data["credential"].as_str().unwrap().to_string();
-        let definition = data["definition"].as_str().unwrap().to_string();
-        let proving_keys = data["proving_keys"].as_str().unwrap().to_string();
-
-        let credential = zkp::Credential::deserialize_encoded(&credential);
-
-        let reqs = {
-            let bytes = BASE64_URL_SAFE_NO_PAD.decode(definition).unwrap();
-            let str = String::from_utf8(bytes).unwrap();
-            serde_json::from_str::<Vec<ProofRequirement>>(&str).unwrap()
-        };
-
-        let proving_keys = {
-            let bytes = BASE64_URL_SAFE_NO_PAD.decode(proving_keys).unwrap();
-            let str = String::from_utf8(bytes).unwrap();
-            serde_json::from_str::<HashMap<String, String>>(&str).unwrap()
-        };
-
-        let device_binding = if let Some(device_binding) = device_binding {
-            let bytes = BASE64_URL_SAFE_NO_PAD.decode(device_binding).unwrap();
-            let str = String::from_utf8(bytes).unwrap();
-            Some(serde_json::from_str::<DeviceBindingRequirement>(&str).unwrap())
-        } else {
-            None
-        };
-
-        let (pres, db_ver) = zkp::present(
-            &mut rng,
-            credential,
-            &reqs,
-            device_binding,
-            &proving_keys,
-            issuer_pk,
-            &issuer_id,
-            &issuer_key_id,
-        )
-        .await;
-
-        let mut resp = json!({
-            "proof": pres.serialize(),
-        });
-
-        if let Some((db, ver)) = db_ver {
-            let (zk_attest, eq_x, eq_y) = db.serialize();
-            let zk_attest = BASE64_URL_SAFE_NO_PAD.encode(zk_attest);
-            let eq_x = BASE64_URL_SAFE_NO_PAD.encode(eq_x);
-            let eq_y = BASE64_URL_SAFE_NO_PAD.encode(eq_y);
-
-            resp["device_binding"] = json!({
-                "zkAttest": zk_attest,
-                "eqX": eq_x,
-                "eqY": eq_y,
-                "verification": ver
-            })
-        }
-
-        Json(resp)
-    }
-
-    #[post(
-        "/verify?<issuer_pk>&<verifying_keys>&<definition>&<issuer_id>&<issuer_key_id>",
-        data = "<proof>"
-    )]
-    pub async fn verify(
-        proof: String,
-        issuer_pk: String,
-        verifying_keys: String,
-        definition: String,
-        issuer_id: String,
-        issuer_key_id: String,
-    ) -> Json<Value> {
-        let mut rng = OsRng;
-
-        let body = serde_json::from_str::<serde_json::Value>(&proof).unwrap();
-
-        let zk_attest = body["zkAttest"].as_str().unwrap();
-        let eq_x = body["eq_x"].as_str().unwrap();
-        let eq_y = body["eq_y"].as_str().unwrap();
-
-        let pres = zkp::Presentation::deserialize(&proof);
-
-        let verifying_keys = {
-            let bytes = BASE64_URL_SAFE_NO_PAD.decode(verifying_keys).unwrap();
-            let str = String::from_utf8(bytes).unwrap();
-            serde_json::from_str::<HashMap<String, String>>(&str).unwrap()
-        };
-
-        let reqs = {
-            let bytes = BASE64_URL_SAFE_NO_PAD.decode(definition).unwrap();
-            let str = String::from_utf8(bytes).unwrap();
-            serde_json::from_str::<Vec<ProofRequirement>>(&str).unwrap()
-        };
-
-        // TODO: get device binding
-
-        let json = zkp::verify(
-            &mut rng,
-            pres,
-            issuer_pk,
-            verifying_keys,
-            &reqs,
-            &issuer_id,
-            &issuer_key_id,
-            None,
-        )
-        .await;
-
-        Json(json)
-    }
-}
-*/
 
 #[get("/")]
 fn index() -> String {
@@ -305,62 +17,63 @@ fn rocket() -> _ {
         .mount(
             "/fips204/44",
             routes![
-                fips204_routes::Fips204MlDsa44Provider_gen_keypair,
-                fips204_routes::Fips204MlDsa44Provider_sign,
-                fips204_routes::Fips204MlDsa44Provider_verify
+                routes::fips204::Fips204MlDsa44Provider_gen_keypair,
+                routes::fips204::Fips204MlDsa44Provider_sign,
+                routes::fips204::Fips204MlDsa44Provider_verify
             ],
         )
         .mount(
             "/fips204/65",
             routes![
-                fips204_routes::Fips204MlDsa65Provider_gen_keypair,
-                fips204_routes::Fips204MlDsa65Provider_sign,
-                fips204_routes::Fips204MlDsa65Provider_verify
+                routes::fips204::Fips204MlDsa65Provider_gen_keypair,
+                routes::fips204::Fips204MlDsa65Provider_sign,
+                routes::fips204::Fips204MlDsa65Provider_verify
             ],
         )
         .mount(
             "/fips204/87",
             routes![
-                fips204_routes::Fips204MlDsa87Provider_gen_keypair,
-                fips204_routes::Fips204MlDsa87Provider_sign,
-                fips204_routes::Fips204MlDsa87Provider_verify
+                routes::fips204::Fips204MlDsa87Provider_gen_keypair,
+                routes::fips204::Fips204MlDsa87Provider_sign,
+                routes::fips204::Fips204MlDsa87Provider_verify
             ],
         )
         .mount(
             "/bbs+/g1/",
             routes![
-                bbs_plus_routes::BbsPlusG1Provider_gen_keypair,
-                bbs_plus_routes::BbsPlusG1Provider_sign,
-                bbs_plus_routes::BbsPlusG1Provider_verify,
-                bbs_plus_routes::BbsPlusG1Provider_create_pok_of_sig,
-                bbs_plus_routes::BbsPlusG1Provider_verify_pok_of_sig,
+                routes::bbs_plus::BbsPlusG1Provider_gen_keypair,
+                routes::bbs_plus::BbsPlusG1Provider_sign,
+                routes::bbs_plus::BbsPlusG1Provider_verify,
+                routes::bbs_plus::BbsPlusG1Provider_create_pok_of_sig,
+                routes::bbs_plus::BbsPlusG1Provider_verify_pok_of_sig,
             ],
         )
         .mount(
             "/bbs+/g2/",
             routes![
-                bbs_plus_routes::BbsPlusG2Provider_gen_keypair,
-                bbs_plus_routes::BbsPlusG2Provider_sign,
-                bbs_plus_routes::BbsPlusG2Provider_verify,
+                routes::bbs_plus::BbsPlusG2Provider_gen_keypair,
+                routes::bbs_plus::BbsPlusG2Provider_sign,
+                routes::bbs_plus::BbsPlusG2Provider_verify,
             ],
         )
-    // .mount(
-    //     "/zkp/",
-    //     routes![
-    //         zkp_routes::gen_keypair,
-    //         zkp_routes::issue,
-    //         zkp_routes::gen_proving_keys,
-    //         zkp_routes::present,
-    //         zkp_routes::verify
-    //     ],
-    // )
+        .mount(
+            "/zkp/",
+            routes![
+                routes::zkp::gen_keypair,
+                routes::zkp::issue,
+                routes::zkp::gen_proving_keys,
+                routes::zkp::present,
+                routes::zkp::verify
+            ],
+        )
 }
 
 #[cfg(test)]
 mod test {
-    use crate::VERSION;
+    use crate::{models::common::KeyPair, VERSION};
 
     use super::*;
+    use next_gen_signatures::{Engine, BASE64_URL_SAFE_NO_PAD};
     use rocket::local::blocking::Client;
     use rocket::{http::Status, uri};
 
@@ -369,10 +82,7 @@ mod test {
             paste::item! {
                 #[test]
                 fn [<test_roundtrip_fips204_ $v>]() {
-                    use crate::KeyPair;
-                    use next_gen_signatures::Engine;
-
-                    let message = crate::BASE64_URL_SAFE_NO_PAD.encode("Hello, World!");
+                    let message = BASE64_URL_SAFE_NO_PAD.encode("Hello, World!");
 
                     let client = Client::tracked(rocket()).expect("valid rocket instance");
                     let response = client
@@ -421,11 +131,8 @@ mod test {
             paste::item! {
                 #[test]
                 fn [<test_roundtrip_bbs_plus_ $g>]() {
-                    use next_gen_signatures::Engine;
-                    use crate::KeyPair;
-
-                    let nonce = next_gen_signatures::BASE64_URL_SAFE_NO_PAD.encode("nonce");
-                    let message = next_gen_signatures::BASE64_URL_SAFE_NO_PAD.encode("Hello, World!");
+                    let nonce = BASE64_URL_SAFE_NO_PAD.encode("nonce");
+                    let message = BASE64_URL_SAFE_NO_PAD.encode("Hello, World!");
 
                     let client = Client::tracked(rocket()).expect("valid rocket instance");
                     let response = client

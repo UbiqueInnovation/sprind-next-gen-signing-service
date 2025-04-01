@@ -1,29 +1,68 @@
 use std::{collections::HashMap, fmt::Write, io::Cursor, str::FromStr};
 
 use anyhow::Context;
+use ark_ff::{BigInteger, PrimeField};
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
-use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine};
+use base64::{
+    prelude::{BASE64_STANDARD, BASE64_URL_SAFE_NO_PAD},
+    Engine,
+};
 use chrono::DateTime;
 use fips204::RngCore;
 use json_ld::{
     rdf_types::generator, syntax::Parse, JsonLdProcessor, RemoteDocument, ReqwestLoader,
 };
 use num_bigint::BigUint;
-use rdf_util::Value as RdfValue;
+pub use rdf_util::Value as RdfValue;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use static_iref::iri;
+pub use zkp_util::vc::requirements::ProofRequirement;
 use zkp_util::{
-    device_binding::{DeviceBindingPresentation, SecpAffine, SecpFr},
+    device_binding::{DeviceBindingPresentation, SecpAffine, SecpFq, SecpFr},
     vc::{
         presentation::VerifiablePresentation,
-        requirements::{
-            DeviceBindingRequirement, DeviceBindingVerificationParams, ProofRequirement,
-        },
+        requirements::{DeviceBindingRequirement, DeviceBindingVerificationParams},
         VerifiableCredential,
     },
     EcdsaSignature,
 };
+
+pub fn serialize_public_key_uncompressed(pubkey: &SecpAffine) -> Vec<u8> {
+    // Serialize X and Y coordinates (32 bytes each)
+    let x_bytes = pubkey.x.into_bigint().to_bytes_be();
+    let y_bytes = pubkey.y.into_bigint().to_bytes_be();
+
+    // Concatenate into [0x04, X, Y]
+    let mut serialized = vec![0x04];
+    serialized.extend(x_bytes);
+    serialized.extend(y_bytes);
+
+    serialized
+}
+
+pub fn deserialize_public_key_uncompressed(bytes: &[u8]) -> anyhow::Result<SecpAffine> {
+    anyhow::ensure!(bytes.len() == 65, "Invalid public key length");
+    anyhow::ensure!(
+        bytes[0] == 0x04,
+        "Invalid uncompressed SEC1 format (missing 0x04 prefix)"
+    );
+
+    // Extract X and Y coordinates
+    let x_bytes: [u8; 32] = bytes[1..33]
+        .try_into()
+        .context("Failed to extract X coordinate")?;
+    let y_bytes: [u8; 32] = bytes[33..65]
+        .try_into()
+        .context("Failed to extract Y coordinate")?;
+
+    // Convert bytes to field elements
+    let x = SecpFq::from(BigUint::from_bytes_be(&x_bytes));
+    let y = SecpFq::from(BigUint::from_bytes_be(&y_bytes));
+
+    // Create an affine point
+    Ok(SecpAffine::new_unchecked(x, y))
+}
 
 pub use zkp_util::keypair::generate_keypair;
 
@@ -65,6 +104,22 @@ pub async fn issue<R: RngCore>(
     let issuance_date = issuance_date.map(|d| DateTime::from_str(d)).transpose()?;
     let created_date = created_date.map(|d| DateTime::from_str(d)).transpose()?;
     let expiration_date = expiration_date.map(|d| DateTime::from_str(d)).transpose()?;
+
+    // Change bases
+    let device_binding = if let Some((x, y)) = device_binding {
+        let x = SecpFq::from(BigUint::from_bytes_le(&BASE64_STANDARD.decode(x)?));
+        let y = SecpFq::from(BigUint::from_bytes_le(&BASE64_STANDARD.decode(y)?));
+
+        let x = zkp_util::device_binding::change_field(&x);
+        let y = zkp_util::device_binding::change_field(&y);
+
+        let x = BASE64_STANDARD.encode(x.into_bigint().to_bytes_le());
+        let y = BASE64_STANDARD.encode(y.into_bigint().to_bytes_le());
+
+        Some((x, y))
+    } else {
+        None
+    };
 
     let vc = zkp_util::vc::issuance::issue(
         rng,
@@ -156,15 +211,20 @@ pub fn present<R: RngCore>(
     };
 
     let device_binding = if let Some(db) = device_binding {
+        let public_key = deserialize_public_key_uncompressed(&db.public_key)?;
+        let message = SecpFr::from(BigUint::from_bytes_be(&db.message));
+        let message_signature = EcdsaSignature {
+            rand_x_coord: SecpFr::from(BigUint::from_bytes_be(&db.message_signature_rand_x_coord)),
+            response: SecpFr::from(BigUint::from_bytes_be(&db.message_signature_response)),
+        };
+
+        let valid = message_signature.verify_prehashed(message, public_key);
+        assert!(valid, "invalid sig");
+
         Some(DeviceBindingRequirement {
-            public_key: SecpAffine::deserialize_uncompressed(Cursor::new(db.public_key))?,
-            message: SecpFr::from(BigUint::from_bytes_be(&db.message)),
-            message_signature: EcdsaSignature {
-                rand_x_coord: SecpFr::from(BigUint::from_bytes_be(
-                    &db.message_signature_rand_x_coord,
-                )),
-                response: SecpFr::from(BigUint::from_bytes_be(&db.message_signature_response)),
-            },
+            public_key,
+            message,
+            message_signature,
             comm_key_secp_label: db.comm_key_secp_label,
             comm_key_tom_label: db.comm_key_tom_label,
             comm_key_bls_label: db.comm_key_bls_label,
@@ -297,7 +357,6 @@ pub fn verify<R: RngCore>(
 mod tests {
     use ark_ec::{AffineRepr, CurveGroup};
     use ark_ff::{BigInteger, PrimeField};
-    use ark_serialize::CanonicalSerialize;
     use ark_std::UniformRand;
     use base64::{prelude::BASE64_STANDARD, Engine};
     use rand_core::OsRng;
@@ -307,7 +366,9 @@ mod tests {
         SECP_GEN,
     };
 
-    use crate::crypto::zkp::{DBRequirement, DBVerificationParams};
+    use crate::crypto::zkp::{
+        serialize_public_key_uncompressed, DBRequirement, DBVerificationParams,
+    };
 
     #[tokio::test]
     pub async fn test_roundtrip() {
@@ -320,11 +381,8 @@ mod tests {
         let db_pk = (SECP_GEN * db_sk).into_affine();
 
         let device_binding = {
-            let x = zkp_util::device_binding::change_field(db_pk.x().unwrap());
-            let y = zkp_util::device_binding::change_field(db_pk.y().unwrap());
-
-            let x = BASE64_STANDARD.encode(x.into_bigint().to_bytes_le());
-            let y = BASE64_STANDARD.encode(y.into_bigint().to_bytes_le());
+            let x = BASE64_STANDARD.encode(db_pk.x().unwrap().into_bigint().to_bytes_le());
+            let y = BASE64_STANDARD.encode(db_pk.y().unwrap().into_bigint().to_bytes_le());
 
             Some((x, y))
         };
@@ -375,11 +433,7 @@ mod tests {
         let message_signature = EcdsaSignature::new_prehashed(&mut rng, message, db_sk);
 
         let device_binding = Some(DBRequirement {
-            public_key: {
-                let mut bytes = Vec::<u8>::new();
-                db_pk.serialize_uncompressed(&mut bytes).unwrap();
-                bytes
-            },
+            public_key: serialize_public_key_uncompressed(&db_pk),
             message: message.into_bigint().to_bytes_be(),
             message_signature_rand_x_coord: message_signature
                 .rand_x_coord
