@@ -27,7 +27,7 @@ pub struct IssuanceParams {
     /// ISO-8061 DateTime of when the credential should expire
     pub expiration_date: Option<String>,
 
-    /// BASE64 encoded x,y coordinates (little endian bytes) of
+    /// BASE64 encoded x,y coordinates (big endian bytes) of
     /// the device binding public key, on the P256 curve.
     pub device_binding: Option<(String, String)>,
 }

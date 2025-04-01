@@ -104,8 +104,8 @@ pub fn present(
         comm_key_tom_label: db.comm_key_tom_label,
         comm_key_bls_label: db.comm_key_bls_label,
         bpp_setup_label: db.bpp_setup_label,
-        merlin_transcript_label: db.merlin_transcript_label,
-        challenge_label: db.challenge_label,
+        merlin_transcript_label: Box::leak(Box::new(db.merlin_transcript_label)),
+        challenge_label: Box::leak(Box::new(db.challenge_label)),
     });
 
     let vp = zkp::present(
@@ -153,8 +153,8 @@ pub fn verify(params: Json<VerificationParams>) -> rocket_errors::anyhow::Result
         comm_key_tom_label: db.comm_key_tom_label,
         comm_key_bls_label: db.comm_key_bls_label,
         bpp_setup_label: db.bpp_setup_label,
-        merlin_transcript_label: db.merlin_transcript_label,
-        challenge_label: db.challenge_label,
+        merlin_transcript_label: Box::leak(Box::new(db.merlin_transcript_label)),
+        challenge_label: Box::leak(Box::new(db.challenge_label)),
     });
 
     let body = zkp::verify(

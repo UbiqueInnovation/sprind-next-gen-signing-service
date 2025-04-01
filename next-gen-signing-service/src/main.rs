@@ -70,12 +70,30 @@ fn rocket() -> _ {
 
 #[cfg(test)]
 mod test {
-    use crate::{models::common::KeyPair, VERSION};
+    use crate::{
+        models::{
+            common::KeyPair,
+            zkp::{CircuitKeys, VerifiableCredential, VerifiablePresentation},
+        },
+        VERSION,
+    };
 
     use super::*;
-    use next_gen_signatures::{Engine, BASE64_URL_SAFE_NO_PAD};
+    use ark_ec::{AffineRepr, CurveGroup};
+    use ark_ff::{BigInteger, PrimeField};
+    use ark_std::UniformRand;
+    use next_gen_signatures::{
+        crypto::zkp::serialize_public_key_uncompressed, Engine, BASE64_STANDARD,
+        BASE64_URL_SAFE_NO_PAD,
+    };
+    use rand_core::OsRng;
     use rocket::local::blocking::Client;
-    use rocket::{http::Status, uri};
+    use rocket::{
+        http::{Header, Status},
+        uri,
+    };
+    use serde_json::{json, Value};
+    use zkp_util::{device_binding::SecpFr, EcdsaSignature, SECP_GEN};
 
     macro_rules! test_roundtrip_fips204 {
         ($v:expr) => {
@@ -263,5 +281,162 @@ mod test {
         let success = response.into_json::<bool>().unwrap();
 
         assert!(success);
+    }
+
+    #[test]
+    fn test_roundtrip_zkp() {
+        let mut rng = OsRng;
+
+        // device binding
+        let db_sk = SecpFr::rand(&mut rng);
+        let db_pk = (SECP_GEN * db_sk).into_affine();
+        let db_pk_x = BASE64_STANDARD.encode(db_pk.x().unwrap().into_bigint().to_bytes_be());
+        let db_pk_y = BASE64_STANDARD.encode(db_pk.y().unwrap().into_bigint().to_bytes_be());
+
+        let client = Client::tracked(rocket()).unwrap();
+        let response = client.get("/zkp/keypair").dispatch();
+        assert_eq!(response.status(), Status::Ok);
+
+        let issuer = response.into_json::<KeyPair>().unwrap();
+        let issuer_id = "did:example:issuer0";
+        let issuer_key_id = "did:example:issuer0#bls12_381-g2-pub001";
+
+        let response = client
+            .post("/zkp/issue")
+            .body(
+                json!({
+                    "claims": {
+                    "@type": "http://schema.org/Person",
+                    "@id": "did:example:johndoe",
+                    "http://schema.org/name": "John Doe",
+                    "http://schema.org/birthDate": {
+                        "@value": "1990-01-01T00:00:00Z",
+                        "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+                    },
+                    "http://schema.org/telephone": "(425) 123-4567",
+                    },
+                    "issuer_pk": issuer.public_key,
+                    "issuer_sk": issuer.secret_key,
+                    "issuer_id": issuer_id,
+                    "issuer_key_id": issuer_key_id,
+                    "issuance_date": "2020-01-01T00:00:00Z",
+                    "created_date": "2025-01-01T00:00:00Z",
+                    "expiration_date": "2030-01-01T00:00:00Z",
+                    "device_binding": [db_pk_x, db_pk_y]
+                })
+                .to_string(),
+            )
+            .header(Header::new("Content-Type", "application/json"))
+            .dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+
+        let vc = response.into_json::<VerifiableCredential>().unwrap();
+
+        let requirements = json!([
+            { "type": "required", "key": "http://schema.org/name" },
+            {
+                "type": "circuit",
+                "circuit_id": "https://zkp-ld.org/circuit/ubique/lessThanPublic",
+
+                "private_var": "a",
+                "private_key": "http://schema.org/birthDate",
+
+                "public_var": "b",
+                "public_val": [
+                    // value
+                    "2001-01-01T00:00:00Z",
+                    // datatype
+                    "http://www.w3.org/2001/XMLSchema#dateTime"
+                ],
+            }
+        ]);
+
+        let response = client
+            .post("/zkp/circuit-keys")
+            .body(requirements.to_string())
+            .header(Header::new("Content-Type", "application/json"))
+            .dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+
+        let circuit_keys = response.into_json::<CircuitKeys>().unwrap();
+
+        let message = SecpFr::rand(&mut rng);
+        let message_signature = EcdsaSignature::new_prehashed(&mut rng, message, db_sk);
+
+        let response = client
+            .post("/zkp/present")
+            .body(
+                json!({
+                    "verifiable_credential": vc,
+                    "requirements": requirements,
+                    "device_binding": {
+                        "public_key": BASE64_URL_SAFE_NO_PAD.encode(
+                            serialize_public_key_uncompressed(&db_pk)),
+                        "message": BASE64_URL_SAFE_NO_PAD.encode(
+                            message.into_bigint().to_bytes_be()),
+                        "message_signature_rand_x_coord": BASE64_URL_SAFE_NO_PAD
+                            .encode(message_signature
+                                .rand_x_coord
+                                .into_bigint()
+                                .to_bytes_be()),
+                        "message_signature_response": BASE64_URL_SAFE_NO_PAD
+                            .encode(message_signature
+                                .response
+                                .into_bigint()
+                                .to_bytes_be()),
+                        "comm_key_secp_label": BASE64_URL_SAFE_NO_PAD.encode(b"secp"),
+                        "comm_key_tom_label": BASE64_URL_SAFE_NO_PAD.encode(b"tom"),
+                        "comm_key_bls_label": BASE64_URL_SAFE_NO_PAD.encode(b"bls"),
+                        "bpp_setup_label": BASE64_URL_SAFE_NO_PAD.encode(b"bpp"),
+                        "merlin_transcript_label": BASE64_URL_SAFE_NO_PAD.encode(b"transcript"),
+                        "challenge_label": BASE64_URL_SAFE_NO_PAD.encode(b"challenge"),
+                    },
+                    "proving_keys": circuit_keys.proving_keys,
+                    "issuer_pk": issuer.public_key,
+                    "issuer_id": issuer_id,
+                    "issuer_key_id": issuer_key_id,
+                })
+                .to_string(),
+            )
+            .header(Header::new("Content-Type", "application/json"))
+            .dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+
+        let vp = response.into_json::<VerifiablePresentation>().unwrap();
+
+        let response = client
+            .post("/zkp/verify")
+            .body(
+                json!({
+                    "presentation": vp,
+                    "requirements": requirements,
+                    "device_binding": {
+                        "message": BASE64_URL_SAFE_NO_PAD.encode(
+                            message.into_bigint().to_bytes_be()),
+                        "comm_key_secp_label": BASE64_URL_SAFE_NO_PAD.encode(b"secp"),
+                        "comm_key_tom_label": BASE64_URL_SAFE_NO_PAD.encode(b"tom"),
+                        "comm_key_bls_label": BASE64_URL_SAFE_NO_PAD.encode(b"bls"),
+                        "bpp_setup_label": BASE64_URL_SAFE_NO_PAD.encode(b"bpp"),
+                        "merlin_transcript_label": BASE64_URL_SAFE_NO_PAD.encode(b"transcript"),
+                        "challenge_label": BASE64_URL_SAFE_NO_PAD.encode(b"challenge"),
+                    },
+                    "verifying_keys": circuit_keys.verifying_keys,
+                    "issuer_pk": issuer.public_key,
+                    "issuer_id": issuer_id,
+                    "issuer_key_id": issuer_key_id,
+                })
+                .to_string(),
+            )
+            .header(Header::new("Content-Type", "application/json"))
+            .dispatch();
+
+        assert_eq!(response.status(), Status::Ok);
+
+        let disclosed = response.into_json::<Value>().unwrap();
+
+        assert_eq!(disclosed["http://schema.org/name"], "John Doe");
     }
 }

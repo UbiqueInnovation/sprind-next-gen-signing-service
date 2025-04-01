@@ -63,12 +63,12 @@ fn device_binding_with_predicates() {
         let x: BlsFr = from_base_field_to_scalar_field::<Fq, BlsFr>(public_key.x().unwrap());
         let y: BlsFr = from_base_field_to_scalar_field::<Fq, BlsFr>(public_key.y().unwrap());
 
-        let x_bytes_le = x.into_bigint().to_bytes_le();
-        let y_bytes_le = y.into_bigint().to_bytes_le();
+        let x_bytes = x.into_bigint().to_bytes_be();
+        let y_bytes = y.into_bigint().to_bytes_be();
 
         (
-            BASE64_STANDARD.encode(x_bytes_le),
-            BASE64_STANDARD.encode(y_bytes_le),
+            BASE64_STANDARD.encode(x_bytes),
+            BASE64_STANDARD.encode(y_bytes),
         )
     };
 

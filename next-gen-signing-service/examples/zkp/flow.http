@@ -1,15 +1,15 @@
 {{
     const crypto = require('crypto');
 
+    function base64_encode(bytes) {
+        return btoa(String.fromCharCode(...bytes));
+    }
+
     function base64url_encode(bytes) {
-        return btoa(String.fromCharCode(...bytes))
+        return base64_encode(bytes)
             .replace(/\+/g, '-')  // Replace '+' with '-'
             .replace(/\//g, '_')  // Replace '/' with '_'
             .replace(/=+$/, '');  // Remove padding '='
-    }
-
-    function base64_encode_le(byteArray) {
-        return btoa(String.fromCharCode(...byteArray.reverse())); // Reverse for little-endian
     }
 
     function utf8_encode(str) {
@@ -42,8 +42,8 @@
         const y = keyBytes.slice(33, 65);
 
         return {
-            x: base64_encode_le(x),
-            y: base64_encode_le(y)
+            x: base64_encode(x),
+            y: base64_encode(y)
         };
     }
 

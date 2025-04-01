@@ -11,3 +11,9 @@ rocket = { workspace = true }
 rocket-errors = "0.1.0"
 serde_json = "1.0.132"
 serde_urlencoded = "0.7.1"
+
+[dev-dependencies]
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+ark-std = { workspace = true }
+zkp-util = { path = "../zkp-util" }

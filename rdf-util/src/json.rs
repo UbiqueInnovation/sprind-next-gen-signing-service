@@ -18,6 +18,12 @@ impl Value {
                     body["@id"] = json!(id);
                 }
 
+                if let ObjectId::BlankNode(id) = id {
+                    if map.is_empty() {
+                        body["@id"] = json!(id)
+                    }
+                }
+
                 body
             }
             Value::ObjectRef(id) => match id {

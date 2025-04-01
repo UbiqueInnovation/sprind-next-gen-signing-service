@@ -107,14 +107,14 @@ pub async fn issue<R: RngCore>(
 
     // Change bases
     let device_binding = if let Some((x, y)) = device_binding {
-        let x = SecpFq::from(BigUint::from_bytes_le(&BASE64_STANDARD.decode(x)?));
-        let y = SecpFq::from(BigUint::from_bytes_le(&BASE64_STANDARD.decode(y)?));
+        let x = SecpFq::from(BigUint::from_bytes_be(&BASE64_STANDARD.decode(x)?));
+        let y = SecpFq::from(BigUint::from_bytes_be(&BASE64_STANDARD.decode(y)?));
 
         let x = zkp_util::device_binding::change_field(&x);
         let y = zkp_util::device_binding::change_field(&y);
 
-        let x = BASE64_STANDARD.encode(x.into_bigint().to_bytes_le());
-        let y = BASE64_STANDARD.encode(y.into_bigint().to_bytes_le());
+        let x = BASE64_STANDARD.encode(x.into_bigint().to_bytes_be());
+        let y = BASE64_STANDARD.encode(y.into_bigint().to_bytes_be());
 
         Some((x, y))
     } else {
@@ -174,11 +174,9 @@ pub struct DBRequirement {
     #[serde(with = "crate::encoding::base64url")]
     pub bpp_setup_label: Vec<u8>,
 
-    #[serde(with = "crate::encoding::base64url")]
-    pub merlin_transcript_label: Vec<u8>,
+    pub merlin_transcript_label: &'static [u8],
 
-    #[serde(with = "crate::encoding::base64url")]
-    pub challenge_label: Vec<u8>,
+    pub challenge_label: &'static [u8],
 }
 
 pub fn present<R: RngCore>(
@@ -230,8 +228,8 @@ pub fn present<R: RngCore>(
             comm_key_bls_label: db.comm_key_bls_label,
             bpp_setup_label: db.bpp_setup_label,
             // TODO: Figure out if this needs the 'static lifetime
-            merlin_transcript_label: Box::leak(Box::new(db.merlin_transcript_label)),
-            challenge_label: Box::leak(Box::new(db.challenge_label)),
+            merlin_transcript_label: db.merlin_transcript_label,
+            challenge_label: db.challenge_label,
         })
     } else {
         None
@@ -284,11 +282,9 @@ pub struct DBVerificationParams {
     #[serde(with = "crate::encoding::base64url")]
     pub bpp_setup_label: Vec<u8>,
 
-    #[serde(with = "crate::encoding::base64url")]
-    pub merlin_transcript_label: Vec<u8>,
+    pub merlin_transcript_label: &'static [u8],
 
-    #[serde(with = "crate::encoding::base64url")]
-    pub challenge_label: Vec<u8>,
+    pub challenge_label: &'static [u8],
 }
 
 pub fn verify<R: RngCore>(
@@ -334,8 +330,8 @@ pub fn verify<R: RngCore>(
             comm_key_tom_label: db.comm_key_tom_label,
             comm_key_bls_label: db.comm_key_bls_label,
             bpp_setup_label: db.bpp_setup_label,
-            merlin_transcript_label: Box::leak(Box::new(db.merlin_transcript_label)),
-            challenge_label: Box::leak(Box::new(db.challenge_label)),
+            merlin_transcript_label: db.merlin_transcript_label,
+            challenge_label: db.challenge_label,
         })
     } else {
         None
@@ -381,8 +377,8 @@ mod tests {
         let db_pk = (SECP_GEN * db_sk).into_affine();
 
         let device_binding = {
-            let x = BASE64_STANDARD.encode(db_pk.x().unwrap().into_bigint().to_bytes_le());
-            let y = BASE64_STANDARD.encode(db_pk.y().unwrap().into_bigint().to_bytes_le());
+            let x = BASE64_STANDARD.encode(db_pk.x().unwrap().into_bigint().to_bytes_be());
+            let y = BASE64_STANDARD.encode(db_pk.y().unwrap().into_bigint().to_bytes_be());
 
             Some((x, y))
         };
@@ -444,8 +440,8 @@ mod tests {
             comm_key_tom_label: b"tom".to_vec(),
             comm_key_bls_label: b"bls".to_vec(),
             bpp_setup_label: b"bpp-setup".to_vec(),
-            merlin_transcript_label: b"transcript".to_vec(),
-            challenge_label: b"challenge".to_vec(),
+            merlin_transcript_label: b"transcript",
+            challenge_label: b"challenge",
         });
 
         let vp = super::present(
@@ -466,8 +462,8 @@ mod tests {
             comm_key_tom_label: b"tom".to_vec(),
             comm_key_bls_label: b"bls".to_vec(),
             bpp_setup_label: b"bpp-setup".to_vec(),
-            merlin_transcript_label: b"transcript".to_vec(),
-            challenge_label: b"challenge".to_vec(),
+            merlin_transcript_label: b"transcript",
+            challenge_label: b"challenge",
         });
 
         super::verify(
