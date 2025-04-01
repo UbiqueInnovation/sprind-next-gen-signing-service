@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fmt::Write, io::Cursor, str::FromStr};
 
+use anyhow::Context;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine};
 use chrono::DateTime;
@@ -13,9 +14,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use static_iref::iri;
 use zkp_util::{
-    device_binding::{SecpAffine, SecpFr},
+    device_binding::{DeviceBindingPresentation, SecpAffine, SecpFr},
     vc::{
-        requirements::{DeviceBindingRequirement, ProofRequirement},
+        presentation::VerifiablePresentation,
+        requirements::{
+            DeviceBindingRequirement, DeviceBindingVerificationParams, ProofRequirement,
+        },
         VerifiableCredential,
     },
     EcdsaSignature,
@@ -90,53 +94,36 @@ pub use zkp_util::circuits::generate_circuits;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DBRequirement {
-    #[serde(with = "base64url")]
+    #[serde(with = "crate::encoding::base64url")]
     pub public_key: Vec<u8>,
 
-    #[serde(with = "base64url")]
+    #[serde(with = "crate::encoding::base64url")]
     pub message: Vec<u8>,
 
-    #[serde(with = "base64url")]
+    // TODO: Is there a common way to serialize the signature?
+    #[serde(with = "crate::encoding::base64url")]
     pub message_signature_rand_x_coord: Vec<u8>,
 
-    #[serde(with = "base64url")]
+    #[serde(with = "crate::encoding::base64url")]
     pub message_signature_response: Vec<u8>,
 
-    #[serde(with = "base64url")]
+    #[serde(with = "crate::encoding::base64url")]
     pub comm_key_secp_label: Vec<u8>,
 
-    #[serde(with = "base64url")]
+    #[serde(with = "crate::encoding::base64url")]
     pub comm_key_tom_label: Vec<u8>,
 
-    #[serde(with = "base64url")]
+    #[serde(with = "crate::encoding::base64url")]
     pub comm_key_bls_label: Vec<u8>,
 
-    #[serde(with = "base64url")]
+    #[serde(with = "crate::encoding::base64url")]
     pub bpp_setup_label: Vec<u8>,
 
-    #[serde(with = "base64url")]
+    #[serde(with = "crate::encoding::base64url")]
     pub merlin_transcript_label: Vec<u8>,
 
-    #[serde(with = "base64url")]
+    #[serde(with = "crate::encoding::base64url")]
     pub challenge_label: Vec<u8>,
-}
-
-mod base64url {
-    use base64::{prelude::BASE64_STANDARD_NO_PAD, Engine};
-    use serde::{Deserialize, Serialize};
-    use serde::{Deserializer, Serializer};
-
-    pub fn serialize<S: Serializer>(v: &Vec<u8>, s: S) -> Result<S::Ok, S::Error> {
-        let base64 = BASE64_STANDARD_NO_PAD.encode(v);
-        String::serialize(&base64, s)
-    }
-
-    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<u8>, D::Error> {
-        let base64 = String::deserialize(d)?;
-        BASE64_STANDARD_NO_PAD
-            .decode(base64.as_bytes())
-            .map_err(|e| serde::de::Error::custom(e))
-    }
 }
 
 pub fn present<R: RngCore>(
@@ -182,6 +169,7 @@ pub fn present<R: RngCore>(
             comm_key_tom_label: db.comm_key_tom_label,
             comm_key_bls_label: db.comm_key_bls_label,
             bpp_setup_label: db.bpp_setup_label,
+            // TODO: Figure out if this needs the 'static lifetime
             merlin_transcript_label: Box::leak(Box::new(db.merlin_transcript_label)),
             challenge_label: Box::leak(Box::new(db.challenge_label)),
         })
@@ -219,4 +207,225 @@ pub fn present<R: RngCore>(
     Ok(token)
 }
 
-pub fn verify() {}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DBVerificationParams {
+    #[serde(with = "crate::encoding::base64url")]
+    pub message: Vec<u8>,
+
+    #[serde(with = "crate::encoding::base64url")]
+    pub comm_key_secp_label: Vec<u8>,
+
+    #[serde(with = "crate::encoding::base64url")]
+    pub comm_key_tom_label: Vec<u8>,
+
+    #[serde(with = "crate::encoding::base64url")]
+    pub comm_key_bls_label: Vec<u8>,
+
+    #[serde(with = "crate::encoding::base64url")]
+    pub bpp_setup_label: Vec<u8>,
+
+    #[serde(with = "crate::encoding::base64url")]
+    pub merlin_transcript_label: Vec<u8>,
+
+    #[serde(with = "crate::encoding::base64url")]
+    pub challenge_label: Vec<u8>,
+}
+
+pub fn verify<R: RngCore>(
+    rng: &mut R,
+    presentation: String,
+    requirements: &Vec<ProofRequirement>,
+    device_binding: Option<DBVerificationParams>,
+    verifying_keys: &HashMap<String, String>,
+    issuer_pk: &str,
+    issuer_id: &str,
+    issuer_key_id: &str,
+) -> anyhow::Result<JsonValue> {
+    let presentation = {
+        let json = serde_json::from_str::<JsonValue>(&String::from_utf8(
+            BASE64_URL_SAFE_NO_PAD.decode(presentation)?,
+        )?)?;
+
+        let proof = rdf_util::MultiGraph::from_str(String::from_utf8(
+            BASE64_URL_SAFE_NO_PAD
+                .decode(json["proof"].as_str().context("No proof value found!")?)?,
+        )?)?;
+
+        let device_binding = if let Some(db) = json.get("device_binding") {
+            let bytes = BASE64_URL_SAFE_NO_PAD
+                .decode(db.as_str().context("Invalid device_binding found!")?)?;
+            Some(DeviceBindingPresentation::deserialize_compressed(
+                Cursor::new(bytes),
+            )?)
+        } else {
+            None
+        };
+
+        VerifiablePresentation {
+            proof,
+            device_binding,
+        }
+    };
+
+    let device_binding = if let Some(db) = device_binding {
+        Some(DeviceBindingVerificationParams {
+            message: SecpFr::from(BigUint::from_bytes_be(&db.message)),
+            comm_key_secp_label: db.comm_key_secp_label,
+            comm_key_tom_label: db.comm_key_tom_label,
+            comm_key_bls_label: db.comm_key_bls_label,
+            bpp_setup_label: db.bpp_setup_label,
+            merlin_transcript_label: Box::leak(Box::new(db.merlin_transcript_label)),
+            challenge_label: Box::leak(Box::new(db.challenge_label)),
+        })
+    } else {
+        None
+    };
+
+    zkp_util::vc::verification::verify(
+        rng,
+        presentation,
+        requirements,
+        device_binding,
+        verifying_keys,
+        issuer_pk,
+        issuer_id,
+        issuer_key_id,
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use ark_ec::{AffineRepr, CurveGroup};
+    use ark_ff::{BigInteger, PrimeField};
+    use ark_serialize::CanonicalSerialize;
+    use ark_std::UniformRand;
+    use base64::{prelude::BASE64_STANDARD, Engine};
+    use rand_core::OsRng;
+    use serde_json::json;
+    use zkp_util::{
+        circuits, device_binding::SecpFr, vc::requirements::ProofRequirement, EcdsaSignature,
+        SECP_GEN,
+    };
+
+    use crate::crypto::zkp::{DBRequirement, DBVerificationParams};
+
+    #[tokio::test]
+    pub async fn test_roundtrip() {
+        let mut rng = OsRng;
+
+        let (issuer_pk, issuer_sk) = super::generate_keypair(&mut rng);
+        let (issuer_id, issuer_key_id) = ("did:example:issuer0", "did:example:issuer0#key001");
+
+        let db_sk = SecpFr::rand(&mut rng);
+        let db_pk = (SECP_GEN * db_sk).into_affine();
+
+        let device_binding = {
+            let x = zkp_util::device_binding::change_field(db_pk.x().unwrap());
+            let y = zkp_util::device_binding::change_field(db_pk.y().unwrap());
+
+            let x = BASE64_STANDARD.encode(x.into_bigint().to_bytes_le());
+            let y = BASE64_STANDARD.encode(y.into_bigint().to_bytes_le());
+
+            Some((x, y))
+        };
+
+        let vc = super::issue(
+            &mut rng,
+            json!({
+                "https://schema.org/name": "John, Doe",
+                "https://schema.org/birthDate": {
+                    "@value": "2000-01-01T00:00:00Z",
+                    "@type": "http://www.w3.org/2001/XMLSchema#dateTime"
+                },
+                "https://schema.org/dog": {
+                    "https://schema.org/name": "Ricky"
+                }
+            }),
+            &issuer_pk,
+            &issuer_sk,
+            issuer_id,
+            issuer_key_id,
+            None,
+            None,
+            None,
+            device_binding,
+        )
+        .await
+        .unwrap();
+
+        let requirements = vec![
+            ProofRequirement::Required {
+                key: "https://schema.org/name".into(),
+            },
+            ProofRequirement::Circuit {
+                id: circuits::LESS_THAN_PUBLIC_ID.to_string(),
+                private_var: "a".into(),
+                private_key: "https://schema.org/birthDate".into(),
+                public_var: "b".into(),
+                public_val: rdf_util::Value::Typed(
+                    "2001-01-01T00:00:00Z".into(),
+                    "http://www.w3.org/2001/XMLSchema#dateTime".into(),
+                ),
+            },
+        ];
+
+        let circuits = super::generate_circuits(&mut rng, &requirements);
+
+        let message = SecpFr::rand(&mut rng);
+        let message_signature = EcdsaSignature::new_prehashed(&mut rng, message, db_sk);
+
+        let device_binding = Some(DBRequirement {
+            public_key: {
+                let mut bytes = Vec::<u8>::new();
+                db_pk.serialize_uncompressed(&mut bytes).unwrap();
+                bytes
+            },
+            message: message.into_bigint().to_bytes_be(),
+            message_signature_rand_x_coord: message_signature
+                .rand_x_coord
+                .into_bigint()
+                .to_bytes_be(),
+            message_signature_response: message_signature.response.into_bigint().to_bytes_be(),
+            comm_key_secp_label: b"secp".to_vec(),
+            comm_key_tom_label: b"tom".to_vec(),
+            comm_key_bls_label: b"bls".to_vec(),
+            bpp_setup_label: b"bpp-setup".to_vec(),
+            merlin_transcript_label: b"transcript".to_vec(),
+            challenge_label: b"challenge".to_vec(),
+        });
+
+        let vp = super::present(
+            &mut rng,
+            vc,
+            &requirements,
+            device_binding,
+            &circuits.proving_keys,
+            &issuer_pk,
+            issuer_id,
+            issuer_key_id,
+        )
+        .unwrap();
+
+        let device_binding = Some(DBVerificationParams {
+            message: message.into_bigint().to_bytes_be(),
+            comm_key_secp_label: b"secp".to_vec(),
+            comm_key_tom_label: b"tom".to_vec(),
+            comm_key_bls_label: b"bls".to_vec(),
+            bpp_setup_label: b"bpp-setup".to_vec(),
+            merlin_transcript_label: b"transcript".to_vec(),
+            challenge_label: b"challenge".to_vec(),
+        });
+
+        super::verify(
+            &mut rng,
+            vp,
+            &requirements,
+            device_binding,
+            &circuits.verifying_keys,
+            &issuer_pk,
+            issuer_id,
+            issuer_key_id,
+        )
+        .unwrap();
+    }
+}

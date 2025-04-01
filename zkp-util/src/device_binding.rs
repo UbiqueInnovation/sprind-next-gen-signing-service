@@ -304,6 +304,10 @@ impl DeviceBindingPresentation {
     }
 }
 
+pub fn change_field(p: &Fq) -> BlsFr {
+    from_base_field_to_scalar_field::<Fq, BlsFr>(p)
+}
+
 #[test]
 pub fn test_device_binding() {
     use std::io::Cursor;

@@ -10,7 +10,7 @@ use rdf_util::oxrdf::vocab::xsd;
 use rdf_util::{ObjectId, Value as RdfValue};
 use std::{collections::BTreeMap, str::FromStr, time::Instant};
 use zkp_util::{
-    circuits::{self, GREATER_THAN_PUBLIC_ID, LESS_THAN_PUBLIC_ID},
+    circuits,
     device_binding::{BlsFr, SecpFr},
     vc::{
         issuance::issue,
@@ -118,7 +118,7 @@ fn device_binding() {
 
     let start = Instant::now();
 
-    let mut vp = present(
+    let vp = present(
         &mut rng,
         vc,
         &requirements,
