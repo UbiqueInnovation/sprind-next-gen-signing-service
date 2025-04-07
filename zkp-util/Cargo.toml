@@ -22,7 +22,7 @@ equality_across_groups = { version = "0.1.0", default-features = false, features
     "parallel",
 ] }
 kvac = { version = "0.7.0", default-features = false }
-legogroth16 = { version = "0.15.0" }
+legogroth16 = { version = "0.16.0" }
 multibase = { workspace = true }
 num-bigint = { version = "0.4.6" }
 proof_system = "0.32.0"
