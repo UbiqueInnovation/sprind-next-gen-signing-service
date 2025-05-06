@@ -3069,7 +3069,7 @@ dependencies = [
 
 [[package]]
 name = "next-gen-signing-service"
-version = "0.1.3"
+version = "0.1.15"
 dependencies = [
  "ark-ec",
  "ark-ff",
