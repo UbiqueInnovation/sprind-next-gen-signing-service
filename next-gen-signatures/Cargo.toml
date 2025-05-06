@@ -18,6 +18,7 @@ rocket = ["dep:rocket"]
 zkp = [
     "dep:ark-std",
     "dep:ark-ff",
+    "dep:ark-serialize",
     "dep:chrono",
     "dep:iref",
     "dep:json-ld",

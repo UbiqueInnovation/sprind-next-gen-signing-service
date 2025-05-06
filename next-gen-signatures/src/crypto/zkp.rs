@@ -8,11 +8,11 @@ use base64::{
     Engine,
 };
 use chrono::DateTime;
-use fips204::RngCore;
 use json_ld::{
     rdf_types::generator, syntax::Parse, JsonLdProcessor, RemoteDocument, ReqwestLoader,
 };
 use num_bigint::BigUint;
+use rand_core::RngCore;
 pub use rdf_util::Value as RdfValue;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
