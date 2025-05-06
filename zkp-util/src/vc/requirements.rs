@@ -1,3 +1,5 @@
+use std::fmt;
+
 use kvac::bbs_sharp::ecdsa;
 use rdf_util::Value as RdfValue;
 use serde::{Deserialize, Serialize};
@@ -38,6 +40,48 @@ pub struct DeviceBindingRequirement {
     pub challenge_label: &'static [u8],
 }
 
+impl fmt::Debug for DeviceBindingRequirement {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.debug_struct("Foo")
+            .field("public_key", &self.public_key)
+            .field("message", &self.message)
+            .field(
+                "message_signature",
+                &format_args!(
+                    "x: {}, response: {}",
+                    self.message_signature.rand_x_coord, self.message_signature.response
+                ),
+            )
+            .field("comm_key_secp_label", &self.comm_key_secp_label)
+            .field("comm_key_tom_label", &self.comm_key_tom_label)
+            .field("comm_key_bls_label", &self.comm_key_bls_label)
+            .field("bpp_setup_label", &self.bpp_setup_label)
+            .field("merlin_transcript_label", &self.merlin_transcript_label)
+            .field("challenge_label", &self.challenge_label)
+            .finish()
+    }
+}
+
+impl Clone for DeviceBindingRequirement {
+    fn clone(&self) -> Self {
+        Self {
+            public_key: self.public_key.clone(),
+            message: self.message.clone(),
+            message_signature: ecdsa::Signature {
+                rand_x_coord: self.message_signature.rand_x_coord.clone(),
+                response: self.message_signature.response.clone(),
+            },
+            comm_key_secp_label: self.comm_key_secp_label.clone(),
+            comm_key_tom_label: self.comm_key_tom_label.clone(),
+            comm_key_bls_label: self.comm_key_bls_label.clone(),
+            bpp_setup_label: self.bpp_setup_label.clone(),
+            merlin_transcript_label: self.merlin_transcript_label,
+            challenge_label: self.challenge_label,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct DeviceBindingVerificationParams {
     pub message: SecpFr,
     pub comm_key_secp_label: Vec<u8>,
