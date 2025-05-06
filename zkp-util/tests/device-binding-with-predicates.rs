@@ -79,8 +79,6 @@ fn device_binding_with_predicates() {
     let comm_key_tom = b"comm-key-tom";
     let comm_key_bls = b"comm-key-bls";
     let bpp_setup_label = b"bpp-setup";
-    let merlin_transcript_label = b"transcript";
-    let challenge_label = b"challenge";
 
     let vc = issue(
         &mut rng,
@@ -130,8 +128,6 @@ fn device_binding_with_predicates() {
         comm_key_tom_label: comm_key_tom.to_vec(),
         comm_key_bls_label: comm_key_bls.to_vec(),
         bpp_setup_label: bpp_setup_label.to_vec(),
-        merlin_transcript_label,
-        challenge_label,
     };
 
     let circuits = circuits::generate_circuits(&mut rng, &requirements);
@@ -160,8 +156,6 @@ fn device_binding_with_predicates() {
         comm_key_tom_label: comm_key_tom.to_vec(),
         comm_key_bls_label: comm_key_bls.to_vec(),
         bpp_setup_label: bpp_setup_label.to_vec(),
-        merlin_transcript_label,
-        challenge_label,
     };
 
     let body = verify(

@@ -36,8 +36,6 @@ pub struct DeviceBindingRequirement {
     pub comm_key_tom_label: Vec<u8>,
     pub comm_key_bls_label: Vec<u8>,
     pub bpp_setup_label: Vec<u8>,
-    pub merlin_transcript_label: &'static [u8],
-    pub challenge_label: &'static [u8],
 }
 
 impl fmt::Debug for DeviceBindingRequirement {
@@ -56,8 +54,6 @@ impl fmt::Debug for DeviceBindingRequirement {
             .field("comm_key_tom_label", &self.comm_key_tom_label)
             .field("comm_key_bls_label", &self.comm_key_bls_label)
             .field("bpp_setup_label", &self.bpp_setup_label)
-            .field("merlin_transcript_label", &self.merlin_transcript_label)
-            .field("challenge_label", &self.challenge_label)
             .finish()
     }
 }
@@ -75,8 +71,6 @@ impl Clone for DeviceBindingRequirement {
             comm_key_tom_label: self.comm_key_tom_label.clone(),
             comm_key_bls_label: self.comm_key_bls_label.clone(),
             bpp_setup_label: self.bpp_setup_label.clone(),
-            merlin_transcript_label: self.merlin_transcript_label,
-            challenge_label: self.challenge_label,
         }
     }
 }
@@ -88,6 +82,4 @@ pub struct DeviceBindingVerificationParams {
     pub comm_key_tom_label: Vec<u8>,
     pub comm_key_bls_label: Vec<u8>,
     pub bpp_setup_label: Vec<u8>,
-    pub merlin_transcript_label: &'static [u8],
-    pub challenge_label: &'static [u8],
 }

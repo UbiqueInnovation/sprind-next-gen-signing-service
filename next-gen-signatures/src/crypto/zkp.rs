@@ -210,10 +210,6 @@ pub struct DBRequirement {
 
     #[serde(with = "crate::encoding::base64url")]
     pub bpp_setup_label: Vec<u8>,
-
-    pub merlin_transcript_label: &'static [u8],
-
-    pub challenge_label: &'static [u8],
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -262,8 +258,6 @@ pub fn present<R: RngCore>(
             comm_key_tom_label: db.comm_key_tom_label,
             comm_key_bls_label: db.comm_key_bls_label,
             bpp_setup_label: db.bpp_setup_label,
-            merlin_transcript_label: db.merlin_transcript_label,
-            challenge_label: db.challenge_label,
         })
     } else {
         None
@@ -315,10 +309,6 @@ pub struct DBVerificationParams {
 
     #[serde(with = "crate::encoding::base64url")]
     pub bpp_setup_label: Vec<u8>,
-
-    pub merlin_transcript_label: &'static [u8],
-
-    pub challenge_label: &'static [u8],
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -365,8 +355,6 @@ pub fn verify<R: RngCore>(
             comm_key_tom_label: db.comm_key_tom_label,
             comm_key_bls_label: db.comm_key_bls_label,
             bpp_setup_label: db.bpp_setup_label,
-            merlin_transcript_label: db.merlin_transcript_label,
-            challenge_label: db.challenge_label,
         })
     } else {
         None
@@ -471,8 +459,6 @@ mod tests {
             comm_key_tom_label: b"tom".to_vec(),
             comm_key_bls_label: b"bls".to_vec(),
             bpp_setup_label: b"bpp-setup".to_vec(),
-            merlin_transcript_label: b"transcript",
-            challenge_label: b"challenge",
         });
 
         let vp = super::present(
@@ -493,8 +479,6 @@ mod tests {
             comm_key_tom_label: b"tom".to_vec(),
             comm_key_bls_label: b"bls".to_vec(),
             bpp_setup_label: b"bpp-setup".to_vec(),
-            merlin_transcript_label: b"transcript",
-            challenge_label: b"challenge",
         });
 
         super::verify(

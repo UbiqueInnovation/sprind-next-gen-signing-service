@@ -14,6 +14,7 @@ use serde_json::Value as JsonValue;
 use std::collections::{BTreeSet, HashMap};
 
 use crate::{
+    constants::{CHALLENGE_LABEL, MERLIN_TRANSCRIPT_LABEL},
     device_binding::{DEVICE_BINDING_KEY_X, DEVICE_BINDING_KEY_Y},
     vc::index::index_of_vp,
 };
@@ -89,8 +90,8 @@ pub fn verify<R: RngCore>(
             &params.comm_key_tom_label,
             &params.comm_key_bls_label,
             &params.bpp_setup_label,
-            params.merlin_transcript_label,
-            params.challenge_label,
+            MERLIN_TRANSCRIPT_LABEL,
+            CHALLENGE_LABEL,
         )?;
     }
 

@@ -7,6 +7,7 @@ use equality_across_groups::{
 };
 
 pub mod circuits;
+pub mod constants;
 pub mod device_binding;
 pub mod keypair;
 pub mod vc;

@@ -14,6 +14,7 @@ use rdf_util::{
 
 use crate::{
     circuits::load_circuits,
+    constants::{CHALLENGE_LABEL, MERLIN_TRANSCRIPT_LABEL},
     device_binding::{
         DeviceBinding, DeviceBindingPresentation, DEVICE_BINDING_KEY, DEVICE_BINDING_KEY_X,
         DEVICE_BINDING_KEY_Y,
@@ -141,8 +142,8 @@ pub fn present<R: RngCore>(
             &db_req.comm_key_tom_label,
             &db_req.comm_key_bls_label,
             &db_req.bpp_setup_label,
-            db_req.merlin_transcript_label,
-            db_req.challenge_label,
+            MERLIN_TRANSCRIPT_LABEL,
+            CHALLENGE_LABEL,
         )?;
 
         statements.add(PedersenCommitment::new_statement_from_params(

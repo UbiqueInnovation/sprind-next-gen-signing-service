@@ -123,12 +123,6 @@ pub struct DBPresentationParams {
 
     #[serde(with = "base64url")]
     pub bpp_setup_label: Vec<u8>,
-
-    #[serde(with = "base64url")]
-    pub merlin_transcript_label: Vec<u8>,
-
-    #[serde(with = "base64url")]
-    pub challenge_label: Vec<u8>,
 }
 
 pub type VerifiablePresentation = String;
@@ -178,10 +172,4 @@ pub struct DBPVerificationParams {
 
     #[serde(with = "base64url")]
     pub bpp_setup_label: Vec<u8>,
-
-    #[serde(with = "base64url")]
-    pub merlin_transcript_label: Vec<u8>,
-
-    #[serde(with = "base64url")]
-    pub challenge_label: Vec<u8>,
 }
