@@ -4,6 +4,7 @@ use oxrdf::{Dataset, GraphName, Quad, Subject, Term, Triple};
 
 use crate::Value;
 
+#[derive(Debug, Clone)]
 pub struct MultiGraph {
     pub(crate) quads: Vec<Quad>,
 }

@@ -24,6 +24,7 @@ use crate::{
 
 use super::requirements::{DeviceBindingRequirement, ProofRequirement};
 
+#[derive(Debug, Clone)]
 pub struct VerifiablePresentation {
     pub proof: MultiGraph,
     pub device_binding: Option<DeviceBindingPresentation>,
