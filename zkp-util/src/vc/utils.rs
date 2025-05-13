@@ -4,6 +4,7 @@ use rdf_proofs::{
 };
 use rdf_util::oxrdf::Dataset;
 
+// TODO: Find a better way to get the number of disclosed terms
 pub fn get_num_disclosed_claims(vp_dataset: &Dataset) -> usize {
     let vp: VerifiablePresentation = vp_dataset.try_into().unwrap();
 

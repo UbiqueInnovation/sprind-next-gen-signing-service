@@ -13,10 +13,11 @@ pub struct PublicValue {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum ProofRequirement {
-    Required {
-        key: String,
-    },
+    #[serde(rename = "required")]
+    Required { key: String },
+    #[serde(rename = "circuit")]
     Circuit {
         id: String,
 
