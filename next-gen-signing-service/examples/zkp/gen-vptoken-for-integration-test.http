@@ -84,7 +84,7 @@
     exports.sha256_hash = sha256_hash;
 
 
-    // Settings (Adjust these if you change something in the test)
+    // Issuance Settings (Adjust these if you change something in the test)
 
     exports.issuer_id = "did:example:issuer0";
     exports.issuer_key_id = "did:example:issuer0#bls12_381-g2-pub001";
@@ -116,10 +116,27 @@
     };
     exports.device_binding_key = key;
 
+    // Presentation Settings
 
     exports.requirements = [
         { "type": "required", "key": "http://schema.org/name" },
     ];
+
+    const message = utf8_encode("1234");
+    const message_hash = await sha256_hash(message);
+    const sig = await sign_message(key.privateKey, message);
+    
+    exports.device_binding_settings = {
+        "public_key": await export_public_key(key.publicKey),
+        "message": base64url_encode(message_hash),
+        "message_signature": base64url_encode(sig),
+        "comm_key_secp_label": base64url_encode(utf8_encode("X509_san_dns:localhost-1234-secp")),
+        "comm_key_tom_label": base64url_encode(utf8_encode("X509_san_dns:localhost-1234-tom")),
+        "comm_key_bls_label": base64url_encode(utf8_encode("X509_san_dns:localhost-1234-bls")),
+        "bpp_setup_label": base64url_encode(utf8_encode("X509_san_dns:localhost-1234-bpp")),
+    }
+
+    exports.message = base64url_encode(message_hash);
 }}
 
 POST http://localhost:8000/zkp/issue
@@ -142,29 +159,15 @@ POST http://localhost:8000/zkp/circuit-keys
 }}
 
 {{
-    const message = utf8_encode("1234");
-    const message_hash = await sha256_hash(message);
-    const sig = await sign_message(
-        device_binding_key.privateKey, message);
-    
     exports.presentation_params = {
         "verifiable_credential": credential,
         "requirements": requirements,
-        "device_binding": {
-            "public_key": await export_public_key(device_binding_key.publicKey),
-            "message": base64url_encode(message_hash),
-            "message_signature": base64url_encode(sig),
-            "comm_key_secp_label": base64url_encode(utf8_encode("X509_san_dns:localhost-1234-secp")),
-            "comm_key_tom_label": base64url_encode(utf8_encode("X509_san_dns:localhost-1234-tom")),
-            "comm_key_bls_label": base64url_encode(utf8_encode("X509_san_dns:localhost-1234-bls")),
-            "bpp_setup_label": base64url_encode(utf8_encode("X509_san_dns:localhost-1234-bpp")),
-        },
+        "device_binding": device_binding_settings,
         "proving_keys": proving_keys,
         "issuer_pk": issuer_pk,
         "issuer_id": issuer_id,
         "issuer_key_id": issuer_key_id,
     };
-    exports.message = base64url_encode(message_hash);
 }}
 
 POST http://localhost:8000/zkp/present
