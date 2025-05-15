@@ -103,7 +103,7 @@ GET http://localhost:8000/zkp/keypair
 
     exports.issuance_params = {
         "claims": {
-            "@type": "http://schema.org/Person",
+            "@type": "http://example.org/credentials/IdentityCredential",
             "@id": "did:example:johndoe",
             "http://schema.org/name": "John Doe",
             "http://schema.org/birthDate": {
@@ -136,6 +136,7 @@ POST http://localhost:8000/zkp/issue
 
 {{
     exports.requirements = [
+        { "type": "required", "key": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" },
         { "type": "required", "key": "http://schema.org/name" },
         {
             "type": "circuit",
