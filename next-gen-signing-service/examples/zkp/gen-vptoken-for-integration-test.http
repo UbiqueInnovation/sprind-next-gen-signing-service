@@ -130,10 +130,10 @@
         "public_key": await export_public_key(key.publicKey),
         "message": base64url_encode(message_hash),
         "message_signature": base64url_encode(sig),
-        "comm_key_secp_label": base64url_encode(utf8_encode("X509_san_dns:localhost-1234-secp")),
-        "comm_key_tom_label": base64url_encode(utf8_encode("X509_san_dns:localhost-1234-tom")),
-        "comm_key_bls_label": base64url_encode(utf8_encode("X509_san_dns:localhost-1234-bls")),
-        "bpp_setup_label": base64url_encode(utf8_encode("X509_san_dns:localhost-1234-bpp")),
+        "comm_key_secp_label": base64url_encode(utf8_encode("x509_san_dns:localhost-1234-secp")),
+        "comm_key_tom_label": base64url_encode(utf8_encode("x509_san_dns:localhost-1234-tom")),
+        "comm_key_bls_label": base64url_encode(utf8_encode("x509_san_dns:localhost-1234-bls")),
+        "bpp_setup_label": base64url_encode(utf8_encode("x509_san_dns:localhost-1234-bpp")),
     }
 
     exports.message = base64url_encode(message_hash);
