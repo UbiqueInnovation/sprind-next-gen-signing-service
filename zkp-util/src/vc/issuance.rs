@@ -48,8 +48,6 @@ pub fn issue<R: RngCore>(
     let created_date = created_date.format("%Y-%m-%dT%H:%M:%SZ").to_string();
     let expiration_date = expiration_date.format("%Y-%m-%dT%H:%M:%SZ").to_string();
 
-    let credential_id = "http://example.org/credentials/person/0";
-
     let (claims, claims_id) = claims.as_object().context("Claims is not an object!")?;
     let (claims, mut claims_id) = (claims.clone(), claims_id.clone());
     if let ObjectId::BlankNode(_) = claims_id {
@@ -58,10 +56,10 @@ pub fn issue<R: RngCore>(
 
     let mut data = rdf_util::from_str(format!(
         r#"
-        <{credential_id}> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
-        <{credential_id}> <https://www.w3.org/2018/credentials#issuer> <{issuer_id}> .
-        <{credential_id}> <https://www.w3.org/2018/credentials#issuanceDate> "{issuance_date}"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
-        <{credential_id}> <https://www.w3.org/2018/credentials#expirationDate> "{expiration_date}"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+        _:b0 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://www.w3.org/2018/credentials#VerifiableCredential> .
+        _:b0 <https://www.w3.org/2018/credentials#issuer> <{issuer_id}> .
+        _:b0 <https://www.w3.org/2018/credentials#issuanceDate> "{issuance_date}"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
+        _:b0 <https://www.w3.org/2018/credentials#expirationDate> "{expiration_date}"^^<http://www.w3.org/2001/XMLSchema#dateTime> .
         "#,
     ))?;
     data["https://www.w3.org/2018/credentials#credentialSubject"] =
