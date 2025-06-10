@@ -8,9 +8,7 @@ use base64::{
     Engine,
 };
 use chrono::DateTime;
-use json_ld::{
-    rdf_types::generator, syntax::Parse, JsonLdProcessor, RemoteDocument, ReqwestLoader,
-};
+use json_ld::{rdf_types::generator, syntax::Parse, JsonLdProcessor, RemoteDocument};
 use num_bigint::BigUint;
 use rand_core::RngCore;
 pub use rdf_util::Value as RdfValue;
@@ -113,8 +111,6 @@ async fn parse_json_ld(data: &str) -> anyhow::Result<RdfValue> {
     loader.mount(iri!("https://www.w3.org/").to_owned(), "jsonld");
     loader.mount(iri!("https://w3id.org/").to_owned(), "jsonld");
     loader.mount(iri!("http://schema.org/").to_owned(), "jsonld");
-
-    let loader = json_ld::loader::ChainLoader::new(loader, ReqwestLoader::new());
 
     let mut generator = generator::Blank::new_with_prefix("b".to_string());
     let mut rdf = doc.to_rdf(&mut generator, &loader).await?;
