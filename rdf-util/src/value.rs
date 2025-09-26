@@ -272,6 +272,17 @@ impl Value {
 
         ids
     }
+
+    pub fn to_term_value(&self) -> Option<Term> {
+        match self {
+            Value::String(s) => Some(Term::Literal(Literal::new_simple_literal(s))),
+            Value::Typed(v, t) => Some(Term::Literal(Literal::new_typed_literal(
+                v,
+                NamedNode::new_unchecked(t),
+            ))),
+            _ => None,
+        }
+    }
 }
 
 impl Display for Value {

@@ -33,5 +33,5 @@ pub use rdf_canon as canon;
 
 pub use crate::blanks::BlankGenerator;
 pub use crate::multigraph::MultiGraph;
-pub use crate::parse::{dataset_from_str, from_str, from_str_with_hint};
+pub use crate::parse::{dataset_from_str, from_str, from_str_with_hint, parse_triples};
 pub use crate::value::{ObjectId, Value};

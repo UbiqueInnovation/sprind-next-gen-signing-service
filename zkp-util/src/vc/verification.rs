@@ -54,6 +54,7 @@ pub fn verify<R: RngCore>(
     issuer_pk: &str,
     issuer_id: &str,
     issuer_key_id: &str,
+    num_vcs: usize,
 ) -> anyhow::Result<JsonValue> {
     let verifying_keys: HashMap<NamedNode, VerifyingKey<Bls12_381>> = verifying_keys
         .iter()
@@ -61,7 +62,11 @@ pub fn verify<R: RngCore>(
         .collect();
 
     let proof = presentation.proof.to_value(GraphName::DefaultGraph);
-    let credential = proof["https://www.w3.org/2018/credentials#verifiableCredential"].clone();
+    let credentials = match &proof["https://www.w3.org/2018/credentials#verifiableCredential"] {
+        RdfValue::Object(m, id) => vec![RdfValue::Object(m.clone(), id.clone())],
+        RdfValue::Array(arr) => arr.clone(),
+        _ => anyhow::bail!("Invalid credential: {proof:#?}"),
+    };
     let predicates = match proof.get("https://zkp-ld.org/security#predicate") {
         Some(RdfValue::Object(m, id)) => vec![RdfValue::Object(m.clone(), id.clone())],
         Some(RdfValue::Array(array)) => array.clone(),
@@ -89,19 +94,43 @@ pub fn verify<R: RngCore>(
             db.bls_comm_pk_y,
         ));
 
-        let x_index = index_of_vp(
-            &presentation.proof.dataset(),
-            &NamedNode::new_unchecked(DEVICE_BINDING_KEY_X),
-        ) + 1;
+        // TODO: This is a biiiiig hack
+        let (x_index, graph_idx) = {
+            if let Some(idx) = index_of_vp(
+                &presentation.proof.dataset(),
+                &NamedNode::new_unchecked(DEVICE_BINDING_KEY_X),
+                0,
+            ) {
+                (idx + 1, 0)
+            } else {
+                (
+                    index_of_vp(
+                        &presentation.proof.dataset(),
+                        &NamedNode::new_unchecked(DEVICE_BINDING_KEY_X),
+                        1,
+                    )
+                    .unwrap()
+                        + 1,
+                    1,
+                )
+            }
+        };
         let y_index = index_of_vp(
             &presentation.proof.dataset(),
             &NamedNode::new_unchecked(DEVICE_BINDING_KEY_Y),
-        ) + 1;
+            graph_idx,
+        )
+        .unwrap()
+            + 1;
 
-        meta_statements
-            .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, x_index), (1, 0)])));
-        meta_statements
-            .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, y_index), (2, 0)])));
+        meta_statements.add_witness_equality(EqualWitnesses(BTreeSet::from([
+            (graph_idx, x_index),
+            (num_vcs + 0, 0),
+        ])));
+        meta_statements.add_witness_equality(EqualWitnesses(BTreeSet::from([
+            (graph_idx, y_index),
+            (num_vcs + 1, 0),
+        ])));
 
         db.verify(
             rng,
@@ -124,6 +153,28 @@ pub fn verify<R: RngCore>(
         "#
     ), Subject::NamedNode(NamedNode::new_unchecked(issuer_id)))?.to_graph(None));
 
+    for req in requirements {
+        if let ProofRequirement::EqualClaims(eq) = req {
+            let idx1 = index_of_vp(
+                &presentation.proof.dataset(),
+                &NamedNode::new_unchecked(&eq.key1),
+                0,
+            )
+            .unwrap()
+                + 1;
+            let idx2 = index_of_vp(
+                &presentation.proof.dataset(),
+                &NamedNode::new_unchecked(&eq.key2),
+                1,
+            )
+            .unwrap()
+                + 1;
+
+            meta_statements
+                .add_witness_equality(EqualWitnesses(BTreeSet::from([(0, idx1), (1, idx2)])));
+        }
+    }
+
     let result = rdf_proofs::verify_proof(
         rng,
         &presentation.proof.dataset(),
@@ -137,12 +188,17 @@ pub fn verify<R: RngCore>(
 
     assert!(result.is_ok(), "{result:#?}");
 
-    let body = credential["https://www.w3.org/2018/credentials#credentialSubject"].to_json();
+    let bodies = credentials
+        .iter()
+        .map(|c| c["https://www.w3.org/2018/credentials#credentialSubject"].to_json())
+        .collect::<Vec<_>>();
 
     // Make sure the claims were reveiled
     for requirement in requirements {
         match requirement {
-            ProofRequirement::Required { key } => anyhow::ensure!(body.get(key).is_some()),
+            ProofRequirement::Required(req) => {
+                anyhow::ensure!(bodies.iter().find(|b| b.get(&req.key).is_some()).is_some())
+            }
             ProofRequirement::Circuit {
                 id,
                 private_var,
@@ -150,16 +206,6 @@ pub fn verify<R: RngCore>(
                 public_var,
                 public_val,
             } => {
-                let private_val = &credential
-                    ["https://www.w3.org/2018/credentials#credentialSubject"][private_key];
-
-                let object_id = match private_val {
-                    RdfValue::Object(_, id) | RdfValue::ObjectRef(id) => id,
-                    _ => anyhow::bail!(
-                        "Invalid private value, expected object, got {private_val:#?}"
-                    ),
-                };
-
                 // Find the matching predicate
                 let predicate = predicates
                     .iter()
@@ -192,10 +238,32 @@ pub fn verify<R: RngCore>(
                 else {
                     anyhow::bail!("Couldn't get the private value of the circuit: {predicates:#?}")
                 };
-                anyhow::ensure!(object_id == private_id, "circuit not satisfied!")
+
+                let mut satisfied = false;
+                for credential in &credentials {
+                    let private_val = &credential
+                        ["https://www.w3.org/2018/credentials#credentialSubject"][private_key];
+
+                    let object_id = match private_val {
+                        RdfValue::Object(_, id) | RdfValue::ObjectRef(id) => id,
+                        _ => anyhow::bail!(
+                            "Invalid private value, expected object, got {private_val:#?}"
+                        ),
+                    };
+                    satisfied |= object_id == private_id;
+                }
+
+                anyhow::ensure!(satisfied, "circuit not satisfied!")
             }
+            ProofRequirement::EqualClaims(_) => {}
         }
     }
+
+    let body = if bodies.len() == 1 {
+        bodies.into_iter().next().unwrap()
+    } else {
+        JsonValue::Array(bodies)
+    };
 
     Ok(body)
 }

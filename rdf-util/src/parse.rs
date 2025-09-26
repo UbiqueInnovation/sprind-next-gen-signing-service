@@ -28,21 +28,18 @@ use oxttl::{NQuadsParser, NTriplesParser, TurtleParseError};
 
 use crate::{value::ObjectId, MultiGraph, Value};
 
+pub fn parse_triples<S: AsRef<str>>(str: S) -> Result<Vec<Triple>, TurtleParseError> {
+    NTriplesParser::new()
+        .for_reader(str.as_ref().as_bytes())
+        .collect::<Result<Vec<_>, _>>()
+}
+
 pub fn from_str<S: AsRef<str>>(str: S) -> Result<Value, TurtleParseError> {
-    Ok(Value::from(
-        NTriplesParser::new()
-            .for_reader(str.as_ref().as_bytes())
-            .collect::<Result<Vec<_>, _>>()?,
-    ))
+    Ok(Value::from(parse_triples(str)?))
 }
 
 pub fn from_str_with_hint<S: AsRef<str>>(str: S, hint: Subject) -> Result<Value, TurtleParseError> {
-    Ok(Value::from((
-        NTriplesParser::new()
-            .for_reader(str.as_ref().as_bytes())
-            .collect::<Result<Vec<_>, _>>()?,
-        hint,
-    )))
+    Ok(Value::from((parse_triples(str)?, hint)))
 }
 
 pub fn dataset_from_str<S: AsRef<str>>(str: S) -> Result<Dataset, TurtleParseError> {

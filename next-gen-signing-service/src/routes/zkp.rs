@@ -18,7 +18,7 @@ specific language governing permissions and limitations
 under the License.
  */
 
-use next_gen_signatures::crypto::zkp::{self, ProofRequirement};
+use next_gen_signatures::crypto::zkp::{self, DiscloseRequirement, ProofRequirement};
 use rand_core::OsRng;
 use rocket::{get, post, serde::json::Json};
 use serde_json::Value as JsonValue;
@@ -63,7 +63,9 @@ pub fn gen_proving_keys(definition: Json<Vec<Requirement>>) -> Json<CircuitKeys>
         .0
         .into_iter()
         .map(|r| match r {
-            Requirement::Required { key } => ProofRequirement::Required { key },
+            Requirement::Required { key } => {
+                ProofRequirement::Required(DiscloseRequirement { key })
+            }
             Requirement::Circuit {
                 circuit_id,
                 private_var,
@@ -98,7 +100,9 @@ pub fn present(
         .requirements
         .into_iter()
         .map(|r| match r {
-            Requirement::Required { key } => ProofRequirement::Required { key },
+            Requirement::Required { key } => {
+                ProofRequirement::Required(DiscloseRequirement { key })
+            }
             Requirement::Circuit {
                 circuit_id,
                 private_var,
@@ -147,7 +151,9 @@ pub fn verify(params: Json<VerificationParams>) -> rocket_errors::anyhow::Result
         .requirements
         .into_iter()
         .map(|r| match r {
-            Requirement::Required { key } => ProofRequirement::Required { key },
+            Requirement::Required { key } => {
+                ProofRequirement::Required(DiscloseRequirement { key })
+            }
             Requirement::Circuit {
                 circuit_id,
                 private_var,

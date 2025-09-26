@@ -25,7 +25,12 @@ use serde_json::json;
 use std::{collections::BTreeMap, str::FromStr};
 use zkp_util::{
     circuits,
-    vc::{issuance::issue, presentation::present, requirements, verification::verify},
+    vc::{
+        issuance::issue,
+        presentation::present,
+        requirements::{DiscloseRequirement, ProofRequirement},
+        verification::verify,
+    },
 };
 
 #[test]
@@ -78,9 +83,9 @@ fn selective_disclosure() {
 
     println!("issuance done! {vc}");
 
-    let requirements = vec![requirements::ProofRequirement::Required {
+    let requirements = vec![ProofRequirement::Required(DiscloseRequirement {
         key: "https://schema.org/name".into(),
-    }];
+    })];
 
     let circuits = circuits::generate_circuits(&mut rng, &requirements);
 
@@ -105,6 +110,7 @@ fn selective_disclosure() {
         ISSUER_PK,
         ISSUER_ID,
         ISSUER_KEY_ID,
+        1,
     )
     .unwrap();
 

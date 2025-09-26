@@ -36,7 +36,7 @@ pub struct PublicValue {
 #[serde(tag = "type")]
 pub enum ProofRequirement {
     #[serde(rename = "required")]
-    Required { key: String },
+    Required(DiscloseRequirement),
     #[serde(rename = "circuit")]
     Circuit {
         id: String,
@@ -47,6 +47,19 @@ pub enum ProofRequirement {
         public_var: String,
         public_val: RdfValue,
     },
+    #[serde(rename = "equalClaims")]
+    EqualClaims(EqualClaimsRequirement),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscloseRequirement {
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EqualClaimsRequirement {
+    pub key1: String,
+    pub key2: String,
 }
 
 pub struct DeviceBindingRequirement {

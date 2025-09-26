@@ -35,7 +35,9 @@ use zkp_util::{
     vc::{
         issuance::issue,
         presentation::present,
-        requirements::{self, DeviceBindingRequirement, DeviceBindingVerificationParams},
+        requirements::{
+            self, DeviceBindingRequirement, DeviceBindingVerificationParams, DiscloseRequirement,
+        },
         verification::verify,
     },
     SECP_GEN,
@@ -117,9 +119,9 @@ fn device_binding_with_predicates() {
     println!("issuance done! {vc}");
 
     let requirements = vec![
-        requirements::ProofRequirement::Required {
+        requirements::ProofRequirement::Required(DiscloseRequirement {
             key: "https://schema.org/name".into(),
-        },
+        }),
         requirements::ProofRequirement::Circuit {
             id: LESS_THAN_PUBLIC_ID.to_string(),
             private_var: "a".to_string(),
@@ -187,6 +189,7 @@ fn device_binding_with_predicates() {
         ISSUER_PK,
         ISSUER_ID,
         ISSUER_KEY_ID,
+        1,
     )
     .unwrap();
 

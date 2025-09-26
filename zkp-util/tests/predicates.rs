@@ -24,7 +24,12 @@ use rdf_util::{ObjectId, Value as RdfValue};
 use std::{collections::BTreeMap, str::FromStr};
 use zkp_util::{
     circuits::{self, GREATER_THAN_PUBLIC_ID, LESS_THAN_PUBLIC_ID},
-    vc::{issuance::issue, presentation::present, requirements, verification::verify},
+    vc::{
+        issuance::issue,
+        presentation::present,
+        requirements::{self, DiscloseRequirement},
+        verification::verify,
+    },
 };
 
 #[test]
@@ -78,9 +83,9 @@ fn predicates() {
     println!("issuance done! {vc}");
 
     let requirements = vec![
-        requirements::ProofRequirement::Required {
+        requirements::ProofRequirement::Required(DiscloseRequirement {
             key: "https://schema.org/name".into(),
-        },
+        }),
         requirements::ProofRequirement::Circuit {
             id: LESS_THAN_PUBLIC_ID.to_string(),
             private_var: "a".to_string(),
@@ -124,6 +129,7 @@ fn predicates() {
         ISSUER_PK,
         ISSUER_ID,
         ISSUER_KEY_ID,
+        1,
     )
     .unwrap();
 

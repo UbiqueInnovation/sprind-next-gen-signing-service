@@ -30,7 +30,7 @@ pub fn index_of_vc(vc: &VerifiableCredential, value: &Term) -> usize {
     terms.iter().position(|t| t == value).unwrap() + 1
 }
 
-pub fn index_of_vp(vp_dataset: &Dataset, predicate: &NamedNode) -> usize {
+pub fn index_of_vp(vp_dataset: &Dataset, predicate: &NamedNode, vc_idx: usize) -> Option<usize> {
     let vp: VerifiablePresentation = vp_dataset.try_into().unwrap();
 
     // get proof value
@@ -69,16 +69,13 @@ pub fn index_of_vp(vp_dataset: &Dataset, predicate: &NamedNode) -> usize {
     // reorder statements according to index map
     let reordered_vc_triples = reorder_vc_triples(&disclosed_vec, &index_map).unwrap();
 
-    let index: usize = reordered_vc_triples
-        .first()
-        .unwrap()
+    reordered_vc_triples
+        .iter()
+        .nth(vc_idx)?
         .document
         .iter()
         .find_map(|(k, v)| {
             v.as_ref()
-                .and_then(|v| (&v.predicate == predicate).then_some(3 * k + 1))
+                .and_then(|v| (&v.predicate == predicate).then_some(3 * k + 1 + 1))
         })
-        .unwrap();
-
-    index + 1
 }

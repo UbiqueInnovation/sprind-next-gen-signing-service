@@ -15,7 +15,7 @@ pub use rdf_util::Value as RdfValue;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use static_iref::iri;
-pub use zkp_util::vc::requirements::ProofRequirement;
+pub use zkp_util::vc::requirements::{DiscloseRequirement, ProofRequirement};
 use zkp_util::{
     device_binding::{DeviceBindingPresentation, SecpAffine, SecpFq, SecpFr},
     vc::{
@@ -365,6 +365,7 @@ pub fn verify<R: RngCore>(
         issuer_pk,
         issuer_id,
         issuer_key_id,
+        1,
     )
 }
 
@@ -377,8 +378,10 @@ mod tests {
     use rand_core::OsRng;
     use serde_json::json;
     use zkp_util::{
-        circuits, device_binding::SecpFr, vc::requirements::ProofRequirement, EcdsaSignature,
-        SECP_GEN,
+        circuits,
+        device_binding::SecpFr,
+        vc::requirements::{DiscloseRequirement, ProofRequirement},
+        EcdsaSignature, SECP_GEN,
     };
 
     use crate::crypto::zkp::{
@@ -427,9 +430,9 @@ mod tests {
         .unwrap();
 
         let requirements = vec![
-            ProofRequirement::Required {
+            ProofRequirement::Required(DiscloseRequirement {
                 key: "https://schema.org/name".into(),
-            },
+            }),
             ProofRequirement::Circuit {
                 id: circuits::LESS_THAN_PUBLIC_ID.to_string(),
                 private_var: "a".into(),
