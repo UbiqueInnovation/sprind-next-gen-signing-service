@@ -311,7 +311,7 @@ pub fn present_two<R: RngCore>(
         .context("Couldn't get the vc_document credentialSubject!")?;
 
     let vc2_doc = rdf_util::Value::from(&vc2.document);
-    let (body2, _) = vc2_doc["https://www.w3.org/2018/credentials#credentialSubject"]
+    let (body2, bid2) = vc2_doc["https://www.w3.org/2018/credentials#credentialSubject"]
         .as_object()
         .context("Couldn't get the vc_document credentialSubject!")?;
 
@@ -453,7 +453,7 @@ pub fn present_two<R: RngCore>(
     let vc2_disclosed = {
         let mut doc = vc2_doc.clone();
         doc["https://www.w3.org/2018/credentials#credentialSubject"] =
-            RdfValue::Object(BTreeMap::new(), bid1.clone());
+            RdfValue::Object(BTreeMap::new(), bid2.clone());
 
         for req in req2 {
             doc["https://www.w3.org/2018/credentials#credentialSubject"][req.key.clone()] =
@@ -480,7 +480,7 @@ pub fn present_two<R: RngCore>(
 
         VerifiableCredential {
             document: doc.to_graph(None),
-            proof: vc1.proof.clone(),
+            proof: vc2.proof.clone(),
         }
     };
 
